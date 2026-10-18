@@ -6,11 +6,15 @@ Item {
     property var settings: ({})
     property string kind: ""
     property real caretAlpha: 0
-    function play() { if(kind.length) { caretMotion.restart() } else layer.start() }
-    function cancel() { layer.cancel(); caretMotion.stop(); caretAlpha = 0 }
+    function play() {
+        if(kind==="copied") { for(var i=0;i<toasts.count;i++) toasts.itemAt(i).play() }
+        else if(kind.length) caretMotion.restart()
+        else layer.start()
+    }
+    function cancel() { layer.cancel(); caretMotion.stop(); caretAlpha = 0; for(var i=0;i<toasts.count;i++) toasts.itemAt(i).cancel() }
     EffectLayer { id: layer; anchors.fill: parent; regions: overlay.regions; settings: overlay.settings }
     Repeater {
-        model: overlay.kind.length ? overlay.regions : []
+        model: overlay.kind.length && overlay.kind!=="copied" ? overlay.regions : []
         delegate: Rectangle {
             required property var modelData
             x: modelData.x-3; y: modelData.y-3; width: modelData.w+6; height: modelData.h+6; radius: 7
@@ -21,6 +25,15 @@ Item {
                 icon.color: "#315fb2"; icon.width: modelData.w; icon.height: modelData.h
                 background: Item {}
             }
+        }
+    }
+    Repeater {
+        id: toasts
+        model: overlay.kind==="copied" ? overlay.regions : []
+        delegate: CopyToast {
+            required property var modelData
+            x: modelData.x; y: modelData.y; width: modelData.w; height: modelData.h
+            settings: overlay.settings
         }
     }
     SequentialAnimation {

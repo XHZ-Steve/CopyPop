@@ -18,6 +18,7 @@
 #include <QQuickWindow>
 #include <QStandardPaths>
 #include <QWindow>
+#include <QScreen>
 
 App::App(Config *config,QQmlEngine *engine,bool testing,QObject *parent)
     : QObject(parent),m_config(config),m_engine(engine),m_events(this),m_classifier(m_events.handle()),m_tracker(m_events.handle(),this),m_renderer(engine),m_menu(std::make_unique<QMenu>()),m_testing(testing) {
@@ -40,10 +41,10 @@ App::App(Config *config,QQmlEngine *engine,bool testing,QObject *parent)
     connect(&m_events,&WindowsEvents::selectionChanged,this,[this]{ if (allowed() && !m_copyPending && !m_snapshotDebounce.isActive()) m_snapshotDebounce.start(); });
     connect(&m_events,&WindowsEvents::selectionReady,&m_tracker,&SelectionTracker::receive);
     connect(&m_events,&WindowsEvents::inputChanged,this,[this]{ if (m_caret) cancel(); if (allowed() && !m_snapshotDebounce.isActive()) m_snapshotDebounce.start(); });
-    connect(&m_events,&WindowsEvents::geometryChanged,this,[this]{ if (m_renderer.visible()) { tick(); if (allowed() && !m_caret) query(QueryReason::Follow); } });
+    connect(&m_events,&WindowsEvents::geometryChanged,this,[this]{ if (m_renderer.visible()) { tick(); if (allowed() && !m_caret && !m_fallback && m_renderer.visible()) query(QueryReason::Follow); } });
     connect(&m_events,&WindowsEvents::displaysChanged,this,[this]{ cancel(); m_tracker.invalidate(); m_snapshot = {}; });
     connect(&m_tracker,&SelectionTracker::ready,this,&App::selection);
-    connect(&m_tracker,&SelectionTracker::budgetExceeded,this,[this]{ ++m_timeouts; if (m_renderer.visible() && !m_caret) cancel(); if (m_copyPending) copyFallback(); emit statusChanged(); });
+    connect(&m_tracker,&SelectionTracker::budgetExceeded,this,[this]{ ++m_timeouts; if (m_renderer.visible() && !m_caret && !m_fallback) { cancel(); showCopyToast(); } else if (m_copyPending) copyFallback(); emit statusChanged(); });
     connect(config,&Config::changed,this,[this] {
         cancel(); m_tracker.invalidate(); m_snapshot = {};
         if (!m_testing && !m_config->value("firstRun").toBool() && Win::startupEnabled() != m_config->value("startup").toBool() && !Win::setStartup(m_config->value("startup").toBool())) notify("无法更新开机启动，请检查当前用户注册表权限。" );
@@ -148,7 +149,7 @@ void App::clipboard() {
     const auto owner = GetAncestor(GetClipboardOwner(),GA_ROOT);
     m_sequence = sequence; ++m_updates; refresh(); emit statusChanged(); log("clipboard-update");
     DWORD pid = 0; GetWindowThreadProcessId(m_foreground,&pid);
-    if (!allowed() || pid == GetCurrentProcessId() || !m_effective.value("effectsEnabled").toBool()) return;
+    if (!allowed() || pid == GetCurrentProcessId() || (!m_effective.value("effectsEnabled").toBool() && !m_effective.value("fallbackEnabled").toBool())) return;
     // An update is not proof of Ctrl+C: require input evidence or a recent selection in the source window.
     const bool recentSelection = m_snapshot.window == m_foreground && m_snapshot.selection && !m_snapshot.protectedControl && m_copyAt-m_snapshot.requestedAt < 900;
     if (!m_copyHint && owner != m_foreground) return;
@@ -167,16 +168,16 @@ void App::selection(const SelectionSnapshot &s) {
         m_copyPending = false; m_copyDeadline.stop();
         if (QDateTime::currentMSecsSinceEpoch()-m_copyAt > 240) return;
         if (!m_copyHint && !s.selection) return;
-        if (!s.rectangles.isEmpty()) animate(s.rectangles);
-        else if (!s.caret.isEmpty()) animate({QRectF(s.caret.topLeft(),QSizeF(30,5))});
-        else copyFallback();
+        if (s.level=="L3" && !s.rectangles.isEmpty() && m_effective.value("effectsEnabled").toBool()) animate(s.rectangles);
+        else showCopyToast();
     } else if (s.reason == QueryReason::Focus && s.editable && !s.caret.isEmpty() && m_effective.value("caretEnabled").toBool() && m_config->value("caretTypes").toString().split(',').contains(m_kind)) {
         const auto scale = double(GetDpiForWindow(s.window))/96.0;
         const auto size = m_config->value("caretSize").toInt()*scale;
         const auto p = s.caret.bottomLeft()+QPointF(m_config->value("caretOffsetX").toInt()*scale,m_config->value("caretOffsetY").toInt()*scale);
         if (Win::clientRect(s.window).contains(p.toPoint())) animate({QRectF(p,QSizeF(size,size))},true);
-    } else if (s.reason == QueryReason::Follow && m_renderer.visible() && !m_caret) {
+    } else if (s.reason == QueryReason::Follow && m_renderer.visible() && !m_caret && !m_fallback) {
         if (!s.selection || s.rectangles.isEmpty()) { cancel(); return; }
+        if(s.level!="L3") {cancel(); showCopyToast(); return;}
         const auto delta = s.rectangles.first().topLeft()-m_rects.first().topLeft();
         if (!m_effective.value("scrollFollow").toBool() && delta.manhattanLength() > 3) { cancel(); return; }
         m_lastMotion = delta; m_lastGeometry = QDateTime::currentMSecsSinceEpoch(); m_rects = s.rectangles; m_renderer.move(m_rects);
@@ -186,24 +187,37 @@ void App::selection(const SelectionSnapshot &s) {
 void App::copyFallback() {
     const bool pending = m_copyPending; m_copyPending = false; m_copyDeadline.stop();
     if (!allowed() || !m_copyHint || QDateTime::currentMSecsSinceEpoch()-m_copyAt > 260 || (!pending && m_renderer.visible())) return;
-    POINT p{}; GetCursorPos(&p);
-    if (GetAncestor(WindowFromPoint(p),GA_ROOT) != m_foreground) return;
-    const auto scale = double(GetDpiForWindow(m_foreground))/96.0;
-    animate({QRectF(p.x-16*scale,p.y+14*scale,32*scale,4*scale)});
+    showCopyToast();
 }
-void App::animate(const QList<QRectF> &rects,bool caret) {
+QRectF App::toastRect() const {
+    POINT p{}; GetCursorPos(&p);
+    if (GetAncestor(WindowFromPoint(p),GA_ROOT) != m_foreground) return {};
+    MONITORINFO monitor{}; monitor.cbSize=sizeof(monitor);
+    if(!GetMonitorInfoW(MonitorFromPoint(p,MONITOR_DEFAULTTONEAREST),&monitor)) return {};
+    const QRect work(monitor.rcWork.left,monitor.rcWork.top,monitor.rcWork.right-monitor.rcWork.left,monitor.rcWork.bottom-monitor.rcWork.top);
+    double scale=1;
+    for(auto *screen:QGuiApplication::screens()) if(screen->geometry().topLeft()==QPoint(monitor.rcMonitor.left,monitor.rcMonitor.top)) {scale=screen->devicePixelRatio();break;}
+    return Win::copyToastRect(QPoint(p.x,p.y),work.intersected(Win::clientRect(m_foreground)),m_effective,scale);
+}
+void App::showCopyToast() {
+    if(!allowed() || !m_effective.value("fallbackEnabled").toBool()) return;
+    const auto rect=toastRect(); if(!rect.isEmpty()) animate({rect},false,true);
+}
+bool App::reducedMotion() const {return m_config->value("respectReducedMotion").toBool() && Win::reducedMotion();}
+void App::animate(const QList<QRectF> &rects,bool caret,bool fallback) {
     if (!allowed() || rects.isEmpty()) return;
     auto settings = m_effective;
+    settings["reducedMotion"]=reducedMotion();
     if (m_config->value("respectReducedMotion").toBool() && Win::reducedMotion()) { settings["effect"] = "pulse"; settings["duration"] = 250; settings["intensity"] = 0.2; }
-    m_owner = m_foreground; m_ownerRect = Win::windowRect(m_owner); m_rects = rects; m_caret = caret;
+    m_owner = m_foreground; m_ownerRect = Win::windowRect(m_owner); m_rects = rects; m_caret = caret; m_fallback=fallback;
     m_animationClock.start(); m_followClock.start(); m_lastGeometry = QDateTime::currentMSecsSinceEpoch(); m_lastMotion = {};
-    m_renderer.show(m_owner,rects,settings,caret?m_kind:QString());
+    m_renderer.show(m_owner,rects,settings,fallback?QString("copied"):caret?m_kind:QString());
     m_attachedTimer.start(); ++m_animations;
 }
-void App::cancel() { m_renderer.hide(); m_attachedTimer.stop(); m_rects.clear(); m_caret = false; m_copyPending = false; m_copyDeadline.stop(); }
+void App::cancel() { m_renderer.hide(); m_attachedTimer.stop(); m_rects.clear(); m_caret = false; m_fallback=false; m_copyPending = false; m_copyDeadline.stop(); }
 void App::tick() {
     if (!m_renderer.visible() || !allowed() || GetForegroundWindow() != m_owner || !IsWindowVisible(m_owner) || IsIconic(m_owner) || (Win::fullscreen(m_owner) && m_config->value("guardFullscreen").toBool())) { cancel(); return; }
-    const auto maxDuration = m_caret?m_config->value("caretDuration").toInt():qRound(m_effective.value("duration").toDouble()/m_effective.value("speed").toDouble());
+    const auto maxDuration = m_fallback?m_effective.value("fallbackDuration").toInt():m_caret?m_config->value("caretDuration").toInt():qRound(m_effective.value("duration").toDouble()/m_effective.value("speed").toDouble());
     if (m_animationClock.elapsed() > maxDuration+60) { cancel(); return; }
     if (m_caret) {
         // Geometry/value WinEvents cover most typing; short-lived key-state observation closes provider gaps. No hook or key recording.
@@ -214,7 +228,10 @@ void App::tick() {
     const auto rect = Win::windowRect(m_owner);
     if (rect.size() != m_ownerRect.size()) { cancel(); m_tracker.invalidate(); return; }
     const auto delta = rect.topLeft()-m_ownerRect.topLeft();
-    if (!delta.isNull()) {
+    if(m_fallback) {
+        const auto tip=toastRect(); if(tip.isEmpty()) {cancel();return;}
+        m_rects={tip}; m_ownerRect=rect; m_renderer.move(m_rects);
+    } else if (!delta.isNull()) {
         if (!m_effective.value("dragFollow").toBool()) { cancel(); return; }
         for (auto &r : m_rects) r.translate(delta);
         m_ownerRect = rect; m_renderer.move(m_rects);
@@ -229,7 +246,7 @@ void App::tick() {
             if(hit && GetAncestor(hit,GA_ROOT)!=m_owner) { cancel(); return; }
         }
     }
-    if (!m_caret && (m_snapshot.level == "L3" || m_snapshot.level == "L2") && m_followClock.elapsed() >= 90) {
+    if (!m_caret && !m_fallback && m_snapshot.level == "L3" && m_followClock.elapsed() >= 90) {
         m_followClock.restart(); query(QueryReason::Follow);
         const auto age = QDateTime::currentMSecsSinceEpoch()-m_lastGeometry;
         if (age > 210) { cancel(); return; }

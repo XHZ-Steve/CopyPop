@@ -20,6 +20,7 @@ QString classifyClipboard(); // Caller owns OpenClipboard; reads at most 2048 UT
 QString clipboardFormatKind(); // Does not request delayed clipboard payloads.
 QString classifyFormats(bool files,bool image,bool text,QStringView snippet = {},bool complete = true);
 bool probableCopy();
+QRectF copyToastRect(QPoint cursor,const QRect &area,const QVariantMap &settings,double scale);
 }
 
 class WindowsEvents : public QObject {

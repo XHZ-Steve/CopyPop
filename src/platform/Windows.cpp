@@ -5,6 +5,8 @@
 #include <QFileInfo>
 #include <QSettings>
 #include <QUrl>
+#include <QFontMetricsF>
+#include <QFont>
 #include <shellapi.h>
 #include <dwmapi.h>
 #include <condition_variable>
@@ -12,6 +14,7 @@
 #include <optional>
 #include <thread>
 #include <chrono>
+#include <cmath>
 
 QString Win::processPath(HWND window) {
     DWORD pid = 0; GetWindowThreadProcessId(window,&pid);
@@ -90,6 +93,21 @@ QString Win::classifyClipboard() {
 }
 bool Win::probableCopy() {
     return ((GetAsyncKeyState(VK_CONTROL)&0x8000) && ((GetAsyncKeyState('C')&0x8000)||(GetAsyncKeyState(VK_INSERT)&0x8000))) || (GetAsyncKeyState(VK_RBUTTON)&0x8000);
+}
+QRectF Win::copyToastRect(QPoint cursor,const QRect &area,const QVariantMap &settings,double scale) {
+    if(area.isEmpty() || scale<=0) return {};
+    QFont font(settings.value("fallbackFont").toString()); font.setPixelSize(settings.value("fallbackFontSize").toInt()); font.setBold(settings.value("fallbackBold").toBool());
+    const QFontMetricsF metrics(font);
+    const auto width=qMin(double(area.width()),std::ceil(metrics.horizontalAdvance(settings.value("fallbackText").toString())+24)*scale);
+    const auto height=std::ceil(metrics.height()+18)*scale;
+    if(width<=0 || height>area.height()) return {};
+    double x=cursor.x()+settings.value("fallbackOffsetX").toDouble()*scale;
+    double y=cursor.y()+settings.value("fallbackOffsetY").toDouble()*scale;
+    if(x+width>area.x()+area.width()) x=cursor.x()-width-12*scale;
+    if(y+height>area.y()+area.height()) y=cursor.y()-height-12*scale;
+    x=qBound(double(area.left()),x,double(area.x()+area.width())-width);
+    y=qBound(double(area.top()),y,double(area.y()+area.height())-height);
+    return {x,y,width,height};
 }
 HWND WindowsEvents::s_window = nullptr;
 WindowsEvents::WindowsEvents(QObject *parent) : QObject(parent) {

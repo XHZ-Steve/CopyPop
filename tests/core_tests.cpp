@@ -9,6 +9,19 @@
 class CoreTests : public QObject {
     Q_OBJECT
 private slots:
+    void fallbackConfigurationAndGeometry() {
+        QTemporaryDir d; Config c(d.filePath("config.json"));
+        QCOMPARE(c.value("fallbackText").toString(),"Copied"); QVERIFY(c.value("fallbackEnabled").toBool());
+        QVERIFY(c.set("fallbackText",QStringLiteral("已复制"))); QVERIFY(!c.set("fallbackText","")); QVERIFY(!c.set("fallbackText","line\nbreak"));
+        QVERIFY(!c.set("fallbackFontSize",60)); QVERIFY(c.set("fallbackBackgroundColor","#cc223344"));
+        QVERIFY(!c.set("fallbackTextColor","invalid-color")); QVERIFY(c.set("fallbackFont","Segoe UI"));
+        QVERIFY(c.setRule("C:/Apps/a.exe",{{"fallbackEnabled",false}})); QVERIFY(!c.effective("C:/Apps/a.exe")["fallbackEnabled"].toBool());
+        const QRect area(-600,100,500,320);
+        const auto tip=Win::copyToastRect(area.bottomRight()-QPoint(2,2),area,c.values(),1.5);
+        QVERIFY(!tip.isEmpty()); QVERIFY(QRectF(area).contains(tip)); QVERIFY(tip.bottom()<area.bottom());
+        QVERIFY(Win::copyToastRect({},QRect(0,0,4,4),c.values(),1).isEmpty());
+        Config again(d.filePath("config.json")); QCOMPARE(again.value("fallbackText").toString(),QStringLiteral("已复制"));
+    }
     void roundtripAndRules() {
         QTemporaryDir d; QVERIFY(d.isValid()); Config c(d.filePath("config.json"));
         QVERIFY(c.value("guardFullscreen").toBool()); QVERIFY(!c.value("predictScroll").toBool());

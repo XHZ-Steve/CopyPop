@@ -18,7 +18,7 @@ Window {
             Label { text: "复制的瞬间，轻轻亮一下。"; color: tokens.text; font.pixelSize: 22; font.weight: Font.Medium }
             Label { text: "选中文字并复制，让流光回应你的操作。\n静静待在托盘，在专注和游戏时自动休眠。"; color: tokens.muted; font.pixelSize: 14; lineHeight: 1.35; Layout.fillWidth: true; wrapMode: Text.WordWrap }
             Preview { Layout.fillWidth: true; Layout.topMargin: 8; theme: tokens; compact: true }
-            CheckBox { text: "开机时启动 CopyPop"; checked: Config.values.startup; onToggled: Config.set("startup",checked); palette.windowText: tokens.text; palette.base: tokens.surface; palette.text: tokens.text; palette.mid: tokens.border }
+            StyledCheckBox { text: "开机时启动 CopyPop"; checked: Config.values.startup; onToggled: Config.set("startup",checked); palette.windowText: tokens.text; palette.base: tokens.surface; palette.text: tokens.text; palette.mid: tokens.border }
             ActionButton {
                 objectName: "welcome-start"
                 text: "Get Started"; Layout.fillWidth: true; Layout.preferredHeight: 46; highlighted: true

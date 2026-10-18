@@ -11,7 +11,7 @@ try{
     foreach($mode in 'light','dark'){
         $config=Join-Path $qa "$mode.json"
         @{schemaVersion=1;global=@{firstRun=$false;startup=$false;theme=$mode};applications=@()} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $config -Encoding utf8
-        foreach($page in 0..6){
+        foreach($page in 0..7){
             $errors=Join-Path $qa "$mode-$page.stderr.txt"
             $args=@('--smoke-test','--test-config',$config,'--test-page',"$page",'--screenshot',(Join-Path $qa "$mode-$page.png"))
             $p=Start-Process -FilePath $exe -ArgumentList $args -WindowStyle Hidden -PassThru -RedirectStandardError $errors
@@ -43,7 +43,7 @@ try{
         $null=$first.WaitForExit(3000); $first.Refresh()
         "Idle CPU time over 3 seconds: $([Math]::Round($first.TotalProcessorTime.TotalMilliseconds-$cpuBefore)) ms; working set: $([Math]::Round($first.WorkingSet64/1MB)) MB" | Set-Content -LiteralPath (Join-Path $qa 'performance.txt')
     } finally { if(-not $first.HasExited){$first.Kill(); $first.WaitForExit()} }
-    Write-Host "PASS: 14 themed pages, welcome, native overlay and isolated single-instance IPC. Evidence: $qa"
+    Write-Host "PASS: 16 themed pages, welcome, native overlay and isolated single-instance IPC. Evidence: $qa"
 }finally{
     $env:PATH=$oldPath; $env:QT_PLUGIN_PATH=$oldPlugins; $env:QML_IMPORT_PATH=$oldQml; $env:QML2_IMPORT_PATH=$oldQml2
 }

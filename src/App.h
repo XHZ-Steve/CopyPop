@@ -18,6 +18,7 @@ class App : public QObject {
     Q_PROPERTY(QString lastApplication READ lastApplication NOTIFY statusChanged)
     Q_PROPERTY(QString diagnostics READ diagnostics NOTIFY statusChanged)
     Q_PROPERTY(QString notice READ notice NOTIFY noticeChanged)
+    Q_PROPERTY(bool reducedMotion READ reducedMotion NOTIFY statusChanged)
 public:
     App(Config *config,QQmlEngine *engine,bool testing = false,QObject *parent = nullptr);
     ~App();
@@ -26,6 +27,7 @@ public:
     QString lastApplication() const { return m_recentPath; }
     QString diagnostics() const;
     QString notice() const { return m_notice; }
+    bool reducedMotion() const;
     void start(bool background);
     Q_INVOKABLE void showSettings();
     Q_INVOKABLE void showWelcome();
@@ -49,12 +51,15 @@ signals:
     void statusChanged();
     void noticeChanged();
 private:
+    friend class UiTests;
     void refresh();
     bool allowed() const;
     void clipboard();
     void selection(const SelectionSnapshot &snapshot);
     void copyFallback();
-    void animate(const QList<QRectF> &rects,bool caret = false);
+    void showCopyToast();
+    QRectF toastRect() const;
+    void animate(const QList<QRectF> &rects,bool caret = false,bool fallback = false);
     void cancel();
     void tick();
     void query(QueryReason reason);
@@ -81,7 +86,7 @@ private:
     QList<QRectF> m_rects;
     QRect m_ownerRect;
     QPointF m_lastMotion;
-    bool m_guarded = false, m_paused = false, m_caret = false, m_copyPending = false, m_copyHint = false, m_testing = false;
+    bool m_guarded = false, m_paused = false, m_caret = false, m_fallback = false, m_copyPending = false, m_copyHint = false, m_testing = false;
     DWORD m_sequence = 0;
     qint64 m_copyAt = 0, m_lastGeometry = 0;
     quint64 m_updates = 0, m_animations = 0, m_timeouts = 0;

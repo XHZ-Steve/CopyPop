@@ -32,7 +32,7 @@ Item {
             required property int index
             x: modelData.x; y: modelData.y; width: Math.max(3,modelData.w); height: Math.max(3,modelData.h)
             clip: true
-            opacity: (effect.settings.opacity || 0.65) * Math.sin(Math.PI * effect.progress)
+            opacity: (effect.settings.opacity || 0.65) * effect.ink.a * Math.sin(Math.PI * effect.progress)
             Rectangle {
                 anchors.fill: parent; radius: Math.min(4,height/3)
                 color: Qt.rgba(effect.ink.r,effect.ink.g,effect.ink.b,effect.chosenEffect === "pulse" ? 0.05 : 0.12)

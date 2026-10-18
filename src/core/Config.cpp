@@ -13,6 +13,7 @@ QVariantMap Config::defaults() {
     return {{"enabled",true},{"firstRun",true},{"startup",true},{"theme","system"},{"language","zh-CN"},{"closeToTray",true},
         {"effect","shimmer"},{"preset","ocean"},{"color","#5989e8"},{"opacity",0.65},{"speed",1.0},{"duration",700},{"intensity",0.6},{"curve","outCubic"},{"adaptive",true},{"effectsEnabled",true},{"respectReducedMotion",true},
         {"caretEnabled",true},{"caretTypes","text,url,image,files,other"},{"caretSize",22},{"caretOffsetX",12},{"caretOffsetY",18},{"caretDuration",1500},{"caretFade",180},{"caretOpacity",0.85},
+        {"fallbackEnabled",true},{"fallbackText","Copied"},{"fallbackTextColor","#f4f7ff"},{"fallbackBackgroundColor","#25334a"},{"fallbackFont","Segoe UI Variable Text"},{"fallbackFontSize",14},{"fallbackBold",false},{"fallbackOpacity",0.95},{"fallbackDuration",900},{"fallbackOffsetX",16},{"fallbackOffsetY",20},{"fallbackRadius",9},
         {"hybridTracking",true},{"scrollFollow",true},{"predictScroll",false},{"dragFollow",true},{"dynamicZ",true},{"clipRegion",true},
         {"guardFullscreen",true},{"guardGames",true},{"guardPresentation",true},{"diagnostics",false}};
 }
@@ -27,7 +28,12 @@ static bool validValue(const QString &key, const QVariant &value) {
         {"effect",{"shimmer","pulse","dissolve"}}, {"theme",{"system","light","dark"}},
         {"preset",{"ocean","mint","rose","custom"}}, {"curve",{"linear","outCubic","inOutSine"}}, {"language",{"zh-CN","en"}}};
     if (choices.contains(key)) return choices[key].contains(value.toString());
-    if (key == "color") return QColor::isValidColorName(value.toString()) && value.toString().size() <= 16;
+    if (key == "color" || key.endsWith("Color")) return value.metaType().id()==QMetaType::QString && QColor::isValidColorName(value.toString()) && value.toString().size() <= 16;
+    if(key=="fallbackText" || key=="fallbackFont") {
+        if(value.metaType().id()!=QMetaType::QString) return false;
+        const auto text=value.toString();
+        return !text.trimmed().isEmpty() && text.size()<=(key=="fallbackText"?80:128) && !text.contains('\n') && !text.contains('\r') && !text.contains(QChar::Null);
+    }
     if (key == "caretTypes") {
         if (value.toString().isEmpty()) return true;
         for (const auto &s : value.toString().split(',')) if (!QStringList{"text","url","image","files","other"}.contains(s)) return false;
@@ -35,7 +41,8 @@ static bool validValue(const QString &key, const QVariant &value) {
     }
     static const QMap<QString,QPair<double,double>> bounds = {
         {"opacity",{0.05,1}},{"speed",{0.25,3}},{"duration",{150,2500}},{"intensity",{0.1,1}},
-        {"caretSize",{14,48}},{"caretOffsetX",{-80,80}},{"caretOffsetY",{-80,80}},{"caretDuration",{300,4000}},{"caretFade",{50,600}},{"caretOpacity",{0.1,1}}};
+        {"caretSize",{14,48}},{"caretOffsetX",{-80,80}},{"caretOffsetY",{-80,80}},{"caretDuration",{300,4000}},{"caretFade",{50,600}},{"caretOpacity",{0.1,1}},
+        {"fallbackFontSize",{10,36}},{"fallbackOpacity",{0.1,1}},{"fallbackDuration",{300,4000}},{"fallbackOffsetX",{-120,120}},{"fallbackOffsetY",{-120,120}},{"fallbackRadius",{0,20}}};
     if (bounds.contains(key)) {
         bool ok = false; const double v = value.toDouble(&ok); const auto b = bounds[key];
         return ok && std::isfinite(v) && v >= b.first && v <= b.second;
@@ -59,7 +66,7 @@ bool Config::validate(QJsonObject &root, QString &error) {
         const auto overrides = app["overrides"].toObject();
         for (auto i = overrides.begin(); i != overrides.end(); ++i) {
             if (i.key() == "excluded") { if (i.value().isBool()) continue; }
-            static const QSet<QString> allowed = {"enabled","effectsEnabled","effect","color","duration","intensity","opacity","speed","adaptive","caretEnabled","scrollFollow","dragFollow","hybridTracking"};
+            static const QSet<QString> allowed = {"enabled","effectsEnabled","effect","color","duration","intensity","opacity","speed","adaptive","caretEnabled","fallbackEnabled","scrollFollow","dragFollow","hybridTracking"};
             if (!allowed.contains(i.key()) || !validValue(i.key(),i.value().toVariant())) { error = "无效应用覆盖：" + i.key(); return false; }
         }
     }

@@ -1,9 +1,11 @@
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
+import QtQuick.Dialogs as Dialogs
 
 Rectangle {
     id: row
+    objectName: spec.key+"-row"
     required property var spec
     property var values: Config.values
     property var theme
@@ -36,7 +38,7 @@ Rectangle {
                 Rectangle { x: toggle.checked ? 23 : 3; y: 3; width: 18; height: 18; radius: 9; color: "#ffffff"; Behavior on x { NumberAnimation { duration: 100 } } }
             }
         }
-        ComboBox {
+        StyledComboBox {
             id: chooser
             objectName: row.spec.key + "-combo"
             visible: row.spec.type === "choice"
@@ -46,15 +48,11 @@ Rectangle {
             currentIndex: { var opts = row.spec.options || []; for(var i=0;i<opts.length;i++) if(opts[i].value === row.values[row.spec.key]) return i; return 0 }
             Accessible.name: row.spec.label
             onActivated: row.edit(currentValue)
-            font.family: "Microsoft YaHei UI"; font.pixelSize: 12
-            background: Rectangle { implicitHeight: 36; radius: 7; color: row.theme.surface; border.width: chooser.activeFocus ? 2 : 1; border.color: chooser.activeFocus ? row.theme.accent : row.theme.border }
-            indicator: ActionButton { x: chooser.width-30; y: (chooser.height-height)/2; width: 26; height: 28; enabled: false; padding: 4; icon.source: "qrc:/resources/icons/chevron-down.svg"; icon.color: row.theme.muted; background: Item {} }
-            contentItem: Text { text: chooser.displayText; font: chooser.font; color: row.theme.text; verticalAlignment: Text.AlignVCenter; leftPadding: 10; rightPadding: 28; elide: Text.ElideRight }
         }
         RowLayout {
             visible: row.spec.type === "number"
-            Layout.preferredWidth: 204; spacing: 8
-            Slider {
+            Layout.preferredWidth: 204; Layout.maximumWidth: 204; spacing: 8
+            StyledSlider {
                 objectName: row.spec.key + "-slider"
                 Layout.fillWidth: true
                 from: row.spec.min || 0; to: row.spec.max || 1; stepSize: row.spec.step || 0.05
@@ -72,11 +70,45 @@ Rectangle {
             text: String(row.values[row.spec.key] || "")
             Accessible.name: row.spec.label
             selectByMouse: true
-            maximumLength: 32
+            maximumLength: row.spec.maxLength || 32
             onEditingFinished: row.edit(text)
             color: row.theme.text; font.family: "Microsoft YaHei UI"; font.pixelSize: 12
             background: Rectangle { implicitHeight: 36; radius: 7; color: row.theme.surface; border.width: entry.activeFocus ? 2 : 1; border.color: entry.activeFocus ? row.theme.accent : row.theme.border }
         }
+        RowLayout {
+            visible: row.spec.type === "color"
+            Layout.preferredWidth: 204; Layout.maximumWidth: 204; spacing: 8
+            ActionButton {
+                objectName: row.spec.key+"-picker"
+                Layout.preferredWidth: 42; Layout.preferredHeight: 38
+                Accessible.name: "选择"+row.spec.label
+                onClicked: { colorDialog.selectedColor=String(row.values[row.spec.key]); colorDialog.open() }
+                contentItem: Rectangle { radius: 5; color: String(row.values[row.spec.key]); border.color: row.theme.border }
+            }
+            TextField {
+                objectName: row.spec.key+"-hex"
+                Layout.fillWidth: true; text: String(row.values[row.spec.key]); maximumLength: 16; selectByMouse: true
+                Accessible.name: row.spec.label+"色值"
+                color: row.theme.text; font.pixelSize: 12; leftPadding: 10
+                onEditingFinished: row.edit(text)
+                background: Rectangle { implicitHeight: 38; radius: 8; color: row.theme.surface; border.color: parent.activeFocus ? row.theme.accent : row.theme.border }
+            }
+        }
+        StyledComboBox {
+            visible: row.spec.type === "font"
+            Layout.preferredWidth: 204
+            objectName: row.spec.key+"-font-picker"
+            model: row.spec.type === "font" ? Qt.fontFamilies() : []
+            currentIndex: model.indexOf(String(row.values[row.spec.key]))
+            Accessible.name: "选择"+row.spec.label
+            onActivated: row.edit(currentText)
+        }
+    }
+    Dialogs.ColorDialog {
+        id: colorDialog; objectName: row.spec.key+"-color-dialog"
+        title: "选择"+row.spec.label
+        options: Dialogs.ColorDialog.ShowAlphaChannel
+        onAccepted: row.edit(selectedColor.toString())
     }
     Rectangle { anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.right: parent.right; anchors.leftMargin: 20; anchors.rightMargin: 20; height: 1; color: row.theme.border; opacity: 0.55 }
 }
