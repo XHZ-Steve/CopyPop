@@ -21,12 +21,16 @@ try{
             if((Get-Item -LiteralPath $errors).Length -gt 0){throw "Runtime warnings: $errors"}
         }
     }
-    $args=@('--smoke-test','--welcome','--test-config',(Join-Path $qa 'light.json'),'--screenshot',(Join-Path $qa 'welcome.png'))
+    $welcomeConfig=Join-Path $qa 'welcome.json'
+    @{schemaVersion=1;global=@{theme='light'};applications=@()} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $welcomeConfig -Encoding utf8
+    $args=@('--smoke-test','--welcome','--test-config',$welcomeConfig,'--screenshot',(Join-Path $qa 'welcome.png'))
     $welcome=Start-Process -FilePath $exe -ArgumentList $args -WindowStyle Hidden -PassThru -RedirectStandardError (Join-Path $qa 'welcome.stderr.txt')
     if(-not $welcome.WaitForExit(15000)){ $welcome.Kill(); throw 'Welcome smoke test timeout' }
     $welcome.Refresh(); if($welcome.ExitCode -ne 0){throw 'Welcome smoke test failed'}
     $instance=Join-Path $qa 'instance.json'
     @{schemaVersion=1;global=@{firstRun=$false;startup=$false};applications=@()} | ConvertTo-Json | Set-Content -LiteralPath $instance -Encoding utf8
+    $ipcScreenshot=Join-Path $qa 'ipc-settings.png'
+    if(Test-Path -LiteralPath $ipcScreenshot){Remove-Item -LiteralPath $ipcScreenshot -Force}
     $first=Start-Process -FilePath $exe -ArgumentList '--background','--test-config',$instance,'--test-instance','--screenshot',(Join-Path $qa 'ipc-settings.png') -WindowStyle Hidden -PassThru
     try{
         $null=$first.WaitForExit(650)

@@ -80,4 +80,3 @@ Rectangle {
     }
     Rectangle { anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.right: parent.right; anchors.leftMargin: 20; anchors.rightMargin: 20; height: 1; color: row.theme.border; opacity: 0.55 }
 }
-

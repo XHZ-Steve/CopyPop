@@ -13,3 +13,5 @@ Exact Qt component source archives, build descriptions and third-party licenses 
 MinGW runtime: GCC 13.1.0 runtime libraries are covered by GPLv3 with the GCC Runtime Library Exception; winpthreads uses its included permissive license. These notices are in licenses/MinGW-GCC and licenses/MinGW-winpthreads. No compiler binaries are bundled with the portable application.
 
 Windows APIs and UI Automation are provided by the operating system. Their headers are used for compilation; Windows components are not redistributed.
+
+NSIS 3.11: the installer stub/compression components use the permissive licenses and linking exceptions reproduced in licenses/NSIS.txt. NSIS is a packaging tool, not a runtime dependency of the portable build. The packaged application does not redistribute the NSIS compiler.

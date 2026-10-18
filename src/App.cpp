@@ -20,10 +20,10 @@
 #include <QWindow>
 
 App::App(Config *config,QQmlEngine *engine,bool testing,QObject *parent)
-    : QObject(parent),m_config(config),m_engine(engine),m_events(this),m_tracker(m_events.handle(),this),m_renderer(engine),m_menu(std::make_unique<QMenu>()),m_testing(testing) {
+    : QObject(parent),m_config(config),m_engine(engine),m_events(this),m_classifier(m_events.handle()),m_tracker(m_events.handle(),this),m_renderer(engine),m_menu(std::make_unique<QMenu>()),m_testing(testing) {
     QFile games(":/resources/data/games.json"); if (games.open(QIODevice::ReadOnly)) m_games = QJsonDocument::fromJson(games.readAll()).array().toVariantList();
     m_sequence = GetClipboardSequenceNumber();
-    if (OpenClipboard(m_events.handle())) { m_kind = Win::classifyClipboard(); CloseClipboard(); }
+    m_kind=Win::clipboardFormatKind(); if(m_kind=="text") m_classifier.request(m_sequence);
     m_guardTimer.setInterval(700);
     connect(&m_guardTimer,&QTimer::timeout,this,&App::refresh);
     m_attachedTimer.setInterval(33);
@@ -34,6 +34,7 @@ App::App(Config *config,QQmlEngine *engine,bool testing,QObject *parent)
     m_snapshotDebounce.setSingleShot(true); m_snapshotDebounce.setInterval(60);
     connect(&m_snapshotDebounce,&QTimer::timeout,this,[this]{ if (allowed()) query(QueryReason::Snapshot); });
     connect(&m_events,&WindowsEvents::clipboardChanged,this,[this]{ clipboard(); });
+    connect(&m_events,&WindowsEvents::clipboardClassified,this,[this]{const auto kind=m_classifier.receive(m_sequence); if(!kind.isEmpty()){m_kind=kind; emit statusChanged();}});
     connect(&m_events,&WindowsEvents::foregroundChanged,this,[this]{ cancel(); m_tracker.invalidate(); m_snapshot = {}; refresh(); if (allowed()) query(QueryReason::Focus); });
     connect(&m_events,&WindowsEvents::focusChanged,this,[this]{ cancel(); m_snapshot = {}; if (allowed()) { m_tracker.invalidate(); query(QueryReason::Focus); } });
     connect(&m_events,&WindowsEvents::selectionChanged,this,[this]{ if (allowed() && !m_copyPending && !m_snapshotDebounce.isActive()) m_snapshotDebounce.start(); });
@@ -139,14 +140,12 @@ void App::trayUpdate() {
     if (m_status != "正在运行") { p.setPen(QPen(QColor("#dcad62"),3)); p.drawLine(22,23,22,29); p.drawLine(28,23,28,29); }
     p.end(); m_tray.setIcon(QIcon(pixmap)); m_tray.setToolTip("CopyPop · " + m_status);
 }
-void App::clipboard(int attempt) {
-    const auto sequence = GetClipboardSequenceNumber(); if (sequence == m_sequence && attempt == 0) return;
-    if (attempt == 0) { cancel(); m_tracker.invalidate(); m_copyPending = false; m_copyHint = Win::probableCopy(); m_copyAt = QDateTime::currentMSecsSinceEpoch(); }
-    if (!OpenClipboard(m_events.handle())) {
-        if (attempt < 3) QTimer::singleShot(20,this,[this,attempt]{ clipboard(attempt+1); });
-        else { m_sequence = sequence; log("clipboard-busy"); } return;
-    }
-    m_kind = Win::classifyClipboard(); const auto owner = GetAncestor(GetClipboardOwner(),GA_ROOT); CloseClipboard();
+void App::clipboard() {
+    const auto sequence = GetClipboardSequenceNumber();
+    if (sequence == m_sequence) return;
+    cancel(); m_tracker.invalidate(); m_copyPending = false; m_copyHint = Win::probableCopy(); m_copyAt = QDateTime::currentMSecsSinceEpoch();
+    m_kind=Win::clipboardFormatKind(); if(m_kind=="text") m_classifier.request(sequence);
+    const auto owner = GetAncestor(GetClipboardOwner(),GA_ROOT);
     m_sequence = sequence; ++m_updates; refresh(); emit statusChanged(); log("clipboard-update");
     DWORD pid = 0; GetWindowThreadProcessId(m_foreground,&pid);
     if (!allowed() || pid == GetCurrentProcessId() || !m_effective.value("effectsEnabled").toBool()) return;

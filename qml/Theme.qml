@@ -10,6 +10,5 @@ QtObject {
     readonly property color border: dark ? "#3c4a5e" : "#d7e0eb"
     readonly property color accent: dark ? "#8fb6ff" : "#315fb2"
     readonly property color selected: dark ? "#2e405c" : "#dfe9fb"
-    readonly property color onAccent: dark ? "#12223c" : "#ffffff"
+    readonly property color accentText: dark ? "#12223c" : "#ffffff"
 }
-

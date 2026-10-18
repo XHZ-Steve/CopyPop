@@ -16,7 +16,7 @@ if(Test-Path -LiteralPath $stage){
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 & cmake --install "$projectRoot/build/release" --prefix $stage
 if($LASTEXITCODE){throw 'Install failed'}
-& "$kitRoot/bin/windeployqt.exe" --release --verbose 0 --compiler-runtime --no-translations --no-opengl-sw --skip-plugin-types generic,platforminputcontexts,qmltooling,vectorimageformats,networkinformation,tls --qmldir "$projectRoot/qml" --dir $stage "$stage/CopyPop.exe"
+& "$kitRoot/bin/windeployqt.exe" --release --verbose 0 --compiler-runtime --no-translations --no-opengl-sw --no-system-d3d-compiler --skip-plugin-types generic,platforminputcontexts,qmltooling,vectorimageformats,networkinformation,tls --qmldir "$projectRoot/qml" --dir $stage "$stage/CopyPop.exe"
 if($LASTEXITCODE){throw 'windeployqt failed'}
 Copy-Item -LiteralPath "$projectRoot/docs" -Destination $stage -Recurse -Force
 Copy-Item -LiteralPath "$projectRoot/examples" -Destination $stage -Recurse -Force
@@ -27,7 +27,9 @@ if(Test-Path -LiteralPath "$kitRoot/sbom") {
         Get-ChildItem -LiteralPath "$kitRoot/sbom" -Filter "$module-*" | Copy-Item -Destination "$stage/licenses/qt-sbom" -Force
     }
 }
-& "$PSScriptRoot/fetch-qt-sources.ps1"
+$qtVersion=& "$kitRoot/bin/qmake.exe" -query QT_VERSION
+if($LASTEXITCODE){throw 'Unable to determine exact Qt source version.'}
+& "$PSScriptRoot/fetch-qt-sources.ps1" -Version $qtVersion
 $archive=Join-Path $projectRoot 'dist/CopyPop-1.0.0-windows-x64.zip'
 Compress-Archive -Path "$stage/*" -DestinationPath $archive -Force
 Get-FileHash -LiteralPath $archive -Algorithm SHA256 | Format-List
@@ -36,3 +38,5 @@ if($Installer){
     & cpack --config "$projectRoot/build/release/CPackConfig.cmake" -G NSIS -B "$projectRoot/dist" -D "CPACK_INSTALLED_DIRECTORIES=$stage;." -D 'CPACK_INSTALL_CMAKE_PROJECTS='
     if($LASTEXITCODE){throw 'NSIS packaging failed. Install NSIS and put makensis in PATH.'}
 }
+Get-FileHash -LiteralPath $archive,"$stage/CopyPop.exe" -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  $([IO.Path]::GetRelativePath((Join-Path $projectRoot 'dist'),$_.Path))" } | Set-Content -LiteralPath "$projectRoot/dist/SHA256SUMS.txt" -Encoding ascii
+if($Installer){Get-FileHash -LiteralPath "$projectRoot/dist/CopyPop-1.0.0-win64.exe" -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } | Add-Content -LiteralPath "$projectRoot/dist/SHA256SUMS.txt" -Encoding ascii}

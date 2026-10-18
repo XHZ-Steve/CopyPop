@@ -51,7 +51,7 @@ signals:
 private:
     void refresh();
     bool allowed() const;
-    void clipboard(int attempt = 0);
+    void clipboard();
     void selection(const SelectionSnapshot &snapshot);
     void copyFallback();
     void animate(const QList<QRectF> &rects,bool caret = false);
@@ -65,6 +65,7 @@ private:
     Config *m_config;
     QQmlEngine *m_engine;
     WindowsEvents m_events;
+    ClipboardClassifier m_classifier;
     SelectionTracker m_tracker;
     OverlayRenderer m_renderer;
     QSystemTrayIcon m_tray;

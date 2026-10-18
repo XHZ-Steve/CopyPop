@@ -28,6 +28,7 @@ public:
     SelectionTracker(HWND notificationWindow,QObject *parent = nullptr);
     ~SelectionTracker();
     bool request(HWND window, QueryReason reason, const QString &path);
+    bool initialized() const;
     void invalidate();
     void receive();
     QString status() const { return m_status; }

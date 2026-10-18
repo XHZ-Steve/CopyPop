@@ -51,5 +51,3 @@ Rectangle {
         actual.start();
     }
 }
-
-

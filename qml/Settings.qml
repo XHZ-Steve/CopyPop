@@ -69,7 +69,7 @@ ApplicationWindow {
     palette.button: tokens.surface
     palette.buttonText: tokens.text
     palette.highlight: tokens.accent
-    palette.highlightedText: tokens.onAccent
+    palette.highlightedText: tokens.accentText
     onClosing: function(close) { if(!Config.values.closeToTray) App.quit() }
     RowLayout {
         anchors.fill: parent; spacing: 0
@@ -251,7 +251,7 @@ ApplicationWindow {
         onAccepted: App.resetConfig()
     }
     Dialog {
-        id: ruleDialog; anchors.centerIn: parent; width: Math.min(620,settingsWindow.width-50); height: Math.min(650,settingsWindow.height-60); modal: true
+        id: ruleDialog; objectName: "rule-editor"; anchors.centerIn: parent; width: Math.min(620,settingsWindow.width-50); height: Math.min(650,settingsWindow.height-60); modal: true
         title: "编辑应用规则"; standardButtons: Dialog.Save | Dialog.Cancel
         property string path: ""
         property var overrides: ({})
@@ -305,6 +305,3 @@ ApplicationWindow {
         }
     }
 }
-
-
-

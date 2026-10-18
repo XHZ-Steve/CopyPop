@@ -38,12 +38,29 @@ private slots:
         auto *preview=findItem(window->contentItem(),"live-preview"); QVERIFY(preview); QVERIFY(QMetaObject::invokeMethod(preview,"play")); QTest::qWait(80);
         for(const QString effect: {"shimmer","pulse","dissolve"}) { QVERIFY(config.set("effect",effect)); QVERIFY(QMetaObject::invokeMethod(preview,"play")); QTest::qWait(60); }
         QVERIFY(config.setRule("C:/Applications/test.exe",{{"effect","pulse"}})); window->setProperty("page",5); QTest::qWait(30);
+        auto *editor=window->findChild<QObject *>("rule-editor"); QVERIFY(editor);
+        QVERIFY(QMetaObject::invokeMethod(editor,"edit",Q_ARG(QVariant,QVariant("C:/Applications/test.exe")),Q_ARG(QVariant,QVariant(QVariantMap{{"effect","pulse"}}))));
+        QTest::qWait(60); QVERIFY(editor->property("visible").toBool()); QVERIFY(QMetaObject::invokeMethod(editor,"accept"));
+        QCOMPARE(config.effective("C:/Applications/test.exe")["effect"].toString(),"pulse");
         QVERIFY(config.set("theme","light")); QTest::qWait(30); QVERIFY(config.set("theme","dark")); QTest::qWait(30);
         // The application creates its own settings window for this native ownership/style test.
         QVERIFY(app.nativeSelfTest());
+        {
+            OverlayRenderer renderer(&engine);
+            const auto owner=reinterpret_cast<HWND>(window->winId()); const auto area=Win::clientRect(owner);
+            for(const QString kind:{"text","url","image","files","other"}) {
+                renderer.show(owner,{QRectF(area.x()+60,area.y()+60,24,24)},config.values(),kind);
+                QTest::qWait(30); QVERIFY(renderer.visible());
+            }
+            renderer.hide(); QVERIFY(!renderer.visible());
+        }
+        QVERIFY(config.set("theme","light"));
         QQmlComponent welcome(&engine,QUrl("qrc:/qml/Welcome.qml")); std::unique_ptr<QObject> greeting(welcome.create()); QVERIFY2(greeting,qPrintable(welcome.errorString()));
         auto *welcomeWindow=qobject_cast<QQuickWindow *>(greeting.get()); QVERIFY(welcomeWindow); welcomeWindow->show(); QVERIFY(QTest::qWaitForWindowExposed(welcomeWindow));
         QVERIFY(welcomeWindow->flags()&Qt::FramelessWindowHint);
+        auto *start=findItem(welcomeWindow->contentItem(),"welcome-start"); QVERIFY(start);
+        auto *label=qvariant_cast<QQuickItem *>(start->property("contentItem")); QVERIFY(label);
+        QCOMPARE(label->property("color").value<QColor>(),QColor("#ffffff"));
     }
     void nativeSelectionAndPassword() {
         qRegisterMetaType<SelectionSnapshot>();
@@ -55,7 +72,8 @@ private slots:
             WindowsEvents events; SelectionTracker tracker(events.handle());
             connect(&events,&WindowsEvents::selectionReady,&tracker,&SelectionTracker::receive);
             QSignalSpy results(&tracker,&SelectionTracker::ready);
-            QTest::qWait(650); QVERIFY(tracker.request(window,QueryReason::Copy,Win::processPath(window)));
+            QTRY_VERIFY_WITH_TIMEOUT(tracker.initialized(),4000);
+            QVERIFY(tracker.request(window,QueryReason::Copy,Win::processPath(window)));
             QTRY_VERIFY_WITH_TIMEOUT(!results.isEmpty(),2000);
             const auto snapshot=qvariant_cast<SelectionSnapshot>(results.last()[0]);
             QCOMPARE(snapshot.window,window);

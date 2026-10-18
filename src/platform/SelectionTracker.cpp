@@ -22,6 +22,7 @@ struct SelectionTracker::Shared {
     std::mutex mutex;
     std::condition_variable wake;
     bool stop = false;
+    std::atomic_bool initialized{false};
     HWND notify = nullptr;
     std::optional<SelectionSnapshot> pending, result;
 };
@@ -178,6 +179,7 @@ SelectionTracker::SelectionTracker(HWND notify,QObject *parent) : QObject(parent
             handler.p = new SelectionEvent([state]{ std::lock_guard lock(state->mutex); if(!state->stop) PostMessageW(state->notify,WindowsEvents::SelectionChanged,0,0); });
             automation->AddAutomationEventHandler(UIA_Text_TextSelectionChangedEventId,root.p,static_cast<TreeScope>(7),nullptr,handler.p);
         }
+        state->initialized.store(true);
         while (true) {
             SelectionSnapshot s;
             { std::unique_lock lock(state->mutex); state->wake.wait(lock,[&]{ return state->stop || state->pending.has_value(); });
@@ -195,8 +197,9 @@ SelectionTracker::SelectionTracker(HWND notify,QObject *parent) : QObject(parent
     }).detach();
 }
 SelectionTracker::~SelectionTracker() { std::lock_guard lock(m_shared->mutex); m_shared->stop = true; m_shared->wake.notify_one(); }
+bool SelectionTracker::initialized() const { return m_shared->initialized.load(); }
 bool SelectionTracker::request(HWND window,QueryReason reason,const QString &path) {
-    if (m_budget.isActive()) return false;
+    if (!initialized() || m_budget.isActive()) return false;
     const auto now = QDateTime::currentMSecsSinceEpoch();
     const auto cache = m_capabilities.value(path);
     if (cache.first > now && cache.second == "timeout") return false;

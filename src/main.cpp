@@ -35,10 +35,11 @@ int main(int argc,char **argv) {
     QLocalServer server;
     const auto serverName = "CopyPop-V1-" + (testing?QString(QCryptographicHash::hash(configFile.toUtf8(),QCryptographicHash::Sha256).toHex().left(16)):qEnvironmentVariable("USERNAME"));
     if (!testing || parser.isSet("test-instance")) {
-        QLocalSocket socket; socket.connectToServer(serverName);
-        if (socket.waitForConnected(350)) { socket.write("settings"); socket.waitForBytesWritten(350); return 0; }
+        auto wakeExisting=[&] { QLocalSocket socket; socket.connectToServer(serverName); if(!socket.waitForConnected(350)) return false; socket.write("settings"); socket.waitForBytesWritten(350); return true; };
+        if (wakeExisting()) return 0;
         lock = std::make_unique<QLockFile>(testing?configFile+".instance.lock":directory+"/instance.lock"); lock->setStaleLockTime(0);
-        if (!lock->tryLock(500)) return 1;
+        if (!lock->tryLock(500)) return wakeExisting()?0:1;
+        server.setSocketOptions(QLocalServer::UserAccessOption);
         QLocalServer::removeServer(serverName); if (!server.listen(serverName)) return 2;
     }
     Config config(configFile); QQmlEngine engine;

@@ -30,5 +30,3 @@ Item {
         NumberAnimation { target: overlay; property: "caretAlpha"; from: 1; to: 0; duration: Math.min(overlay.settings.caretFade || 180,(overlay.settings.caretDuration || 1500)/3) }
     }
 }
-
-

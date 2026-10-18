@@ -20,7 +20,7 @@ Windows 剪贴板微交互工具。复制时回应一束流光，输入前提示
 
 ## 构建
 
-安装 CMake ≥3.24、Ninja、Qt ≥6.5（推荐 6.11.1）及其匹配的 MinGW 或 MSVC x64 编译器。需要 Core / Gui / Widgets / Quick / QuickControls2 / Network / Svg / Test 模块。
+安装 CMake ≥3.25、Ninja、Qt ≥6.5（推荐 6.11.1）及其匹配的 MinGW 或 MSVC x64 编译器。需要 Core / Gui / Widgets / Quick / QuickControls2 / Network / Svg / Test 模块。
 
 ```powershell
 ./scripts/build.ps1 -Configuration release
@@ -30,6 +30,8 @@ Windows 剪贴板微交互工具。复制时回应一束流光，输入前提示
 ./scripts/package.ps1 -QtRoot C:/Qt/6.11.1/mingw_64
 # NSIS 在 PATH 中时生成安装程序
 ./scripts/package.ps1 -QtRoot C:/Qt/6.11.1/mingw_64 -Installer
+# 在没有 Qt 环境变量的条件下检查发布目录（会打开本程序的测试窗口）
+./scripts/test-deployment.ps1
 ```
 
 脚本会探测常见 Qt 安装目录，核对 MinGW 主版本并明确指定 C++ 编译器，避免混用 MSYS2。MSVC Kit 通过 VsDevCmd 加载 x64 编译环境。CMakePresets 提供 release/debug 配置；自定义 Kit 可使用 `QT_ROOT` 或 `CMakeUserPresets.json`。
@@ -50,7 +52,7 @@ ctest --preset release --output-on-failure
 
 ## 架构
 
-`src/platform` 隔离 Win32 与 MTA UIA 查询；`src/core` 负责配置/规则；`App` 协调事件、保护状态与托盘；`IOverlayRenderer` 隔离渲染器；`qml/EffectLayer.qml` 同时服务桌面覆盖层和交互预览。没有全局键盘钩子、注入、跨进程 SetParent 或游戏内部 API。
+`src/platform` 隔离 Win32、MTA UIA 查询和异步剪贴板分类；`src/core` 负责配置/规则；`App` 协调事件、保护状态与托盘；`IOverlayRenderer` 隔离渲染器；`qml/EffectLayer.qml` 同时服务桌面覆盖层和交互预览。没有全局键盘钩子、注入、跨进程 SetParent 或游戏内部 API。
 
 剪贴板更新与“推测刚执行复制”是不同事件。只有按键状态证据，或剪贴板来源为前台窗口且查询确认存在选区时才播放。无法确定来源时可跳过；这会牺牲部分应用里的覆盖率，以避免后台同步误触发。
 

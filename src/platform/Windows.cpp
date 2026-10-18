@@ -7,6 +7,11 @@
 #include <QUrl>
 #include <shellapi.h>
 #include <dwmapi.h>
+#include <condition_variable>
+#include <mutex>
+#include <optional>
+#include <thread>
+#include <chrono>
 
 QString Win::processPath(HWND window) {
     DWORD pid = 0; GetWindowThreadProcessId(window,&pid);
@@ -57,6 +62,11 @@ QString Win::classifyFormats(bool files,bool image,bool text,QStringView snippet
     const bool link=complete && !candidate.contains(QChar(' ')) && !candidate.contains(QChar('\n')) && url.isValid() && !url.host().isEmpty() && (url.scheme()=="https" || url.scheme()=="http" || url.scheme()=="ftp");
     return link?"url":"text";
 }
+QString Win::clipboardFormatKind() {
+    return classifyFormats(IsClipboardFormatAvailable(CF_HDROP),
+        IsClipboardFormatAvailable(CF_DIBV5) || IsClipboardFormatAvailable(CF_DIB) || IsClipboardFormatAvailable(CF_BITMAP) || IsClipboardFormatAvailable(RegisterClipboardFormatW(L"PNG")),
+        IsClipboardFormatAvailable(CF_UNICODETEXT) || IsClipboardFormatAvailable(CF_TEXT));
+}
 QString Win::classifyClipboard() {
     const bool files=IsClipboardFormatAvailable(CF_HDROP);
     const bool image=IsClipboardFormatAvailable(CF_DIBV5) || IsClipboardFormatAvailable(CF_DIB) || IsClipboardFormatAvailable(CF_BITMAP) || IsClipboardFormatAvailable(RegisterClipboardFormatW(L"PNG"));
@@ -97,6 +107,7 @@ LRESULT CALLBACK WindowsEvents::windowProc(HWND w,UINT msg,WPARAM wp,LPARAM lp) 
     auto self = reinterpret_cast<WindowsEvents *>(GetWindowLongPtrW(w,GWLP_USERDATA));
     if (self) switch (msg) {
         case WM_CLIPBOARDUPDATE: emit self->clipboardChanged(); return 0;
+        case ClipboardClassified: emit self->clipboardClassified(); return 0;
         case WM_DISPLAYCHANGE: case WM_DPICHANGED: emit self->displaysChanged(); break;
         case SelectionReady: emit self->selectionReady(); return 0;
         case SelectionChanged: emit self->selectionChanged(); return 0;
@@ -107,6 +118,42 @@ LRESULT CALLBACK WindowsEvents::windowProc(HWND w,UINT msg,WPARAM wp,LPARAM lp) 
     }
     return DefWindowProcW(w,msg,wp,lp);
 }
+
+struct ClipboardClassifier::Shared {
+    std::mutex mutex;
+    std::condition_variable wake;
+    bool stop=false;
+    std::optional<DWORD> pending;
+    DWORD completed=0;
+    QString kind;
+    std::chrono::steady_clock::time_point started;
+    HWND notify=nullptr;
+};
+ClipboardClassifier::ClipboardClassifier(HWND notificationWindow) : m_shared(std::make_shared<Shared>()) {
+    m_shared->notify=notificationWindow;
+    // Delayed-render clipboard owners can block GetClipboardData. Keep this off the GUI
+    // and UIA threads; never create an unbounded number of replacement workers.
+    std::thread([state=m_shared] {
+        while(true) {
+            DWORD sequence;
+            {std::unique_lock lock(state->mutex); state->wake.wait(lock,[&]{return state->stop || state->pending.has_value();}); if(state->stop) return; sequence=*state->pending; state->pending.reset(); state->started=std::chrono::steady_clock::now();}
+            QString kind;
+            for(int attempt=0;attempt<3;++attempt) {
+                if(GetClipboardSequenceNumber()!=sequence) break;
+                if(OpenClipboard(state->notify)) {kind=Win::classifyClipboard(); CloseClipboard(); break;}
+                std::unique_lock lock(state->mutex);
+                if(state->wake.wait_for(lock,std::chrono::milliseconds(20),[&]{return state->stop || state->pending.has_value();})) break;
+            }
+            std::lock_guard lock(state->mutex);
+            if(state->stop) return;
+            if(kind.isEmpty() || GetClipboardSequenceNumber()!=sequence || std::chrono::steady_clock::now()-state->started>std::chrono::milliseconds(350)) continue;
+            state->completed=sequence; state->kind=kind; PostMessageW(state->notify,WindowsEvents::ClipboardClassified,0,0);
+        }
+    }).detach();
+}
+ClipboardClassifier::~ClipboardClassifier() {std::lock_guard lock(m_shared->mutex); m_shared->stop=true; m_shared->wake.notify_one();}
+void ClipboardClassifier::request(DWORD sequence) {std::lock_guard lock(m_shared->mutex); m_shared->pending=sequence; m_shared->wake.notify_one();}
+QString ClipboardClassifier::receive(DWORD sequence) {std::lock_guard lock(m_shared->mutex); return m_shared->completed==sequence && GetClipboardSequenceNumber()==sequence?m_shared->kind:QString();}
 void CALLBACK WindowsEvents::eventProc(HWINEVENTHOOK,DWORD event,HWND w,LONG object,LONG,DWORD,DWORD) {
     if (!s_window) return;
     if (event == EVENT_SYSTEM_FOREGROUND) { PostMessageW(s_window,WM_APP+1,0,0); return; }

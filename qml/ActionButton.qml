@@ -10,9 +10,10 @@ Button {
     rightPadding: padding
     font.family: "Microsoft YaHei UI"
     font.pixelSize: 13
-    icon.color: highlighted ? tokens.onAccent : tokens.text
-    palette.buttonText: highlighted ? tokens.onAccent : tokens.text
-    palette.highlightedText: tokens.onAccent
+    icon.color: highlighted ? tokens.accentText : tokens.text
+    palette.buttonText: highlighted ? tokens.accentText : tokens.text
+    palette.highlightedText: tokens.accentText
+    palette.brightText: tokens.accentText
     background: Rectangle {
         radius: 8
         color: control.highlighted ? tokens.accent : control.down ? tokens.selected : control.hovered ? tokens.sidebar : tokens.surface
@@ -22,4 +23,3 @@ Button {
         Behavior on color { ColorAnimation { duration: 100 } }
     }
 }
-
