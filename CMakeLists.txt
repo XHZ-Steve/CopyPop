@@ -20,6 +20,8 @@ qt_add_resources(CopyPop assets PREFIX "/" FILES ${QML_FILES} ${ICON_FILES})
 if(MSVC)
   target_compile_options(copypop_core PRIVATE /W4 /utf-8)
   target_compile_options(CopyPop PRIVATE /W4 /utf-8)
+  # copypop.rc already embeds our DPI/privilege manifest; avoid a duplicate generated resource.
+  target_link_options(CopyPop PRIVATE /MANIFEST:NO)
 else()
   target_compile_options(copypop_core PRIVATE -Wall -Wextra)
   target_compile_options(CopyPop PRIVATE -Wall -Wextra)
