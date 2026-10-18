@@ -1,0 +1,7 @@
+/build*/
+/dist/
+/.qt/
+/CMakeUserPresets.json
+*.user
+*.log
+__pycache__/

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "global": {
+    "enabled": true,
+    "firstRun": false,
+    "startup": false,
+    "theme": "system",
+    "effect": "shimmer",
+    "color": "#5989e8",
+    "duration": 700,
+    "speed": 1.0,
+    "intensity": 0.6,
+    "opacity": 0.65,
+    "adaptive": true,
+    "caretEnabled": true,
+    "guardFullscreen": true,
+    "guardGames": true,
+    "guardPresentation": true,
+    "predictScroll": false
+  },
+  "applications": [
+    {"path":"C:/Example/Editor.exe","overrides":{"effect":"pulse","duration":500}},
+    {"path":"C:/Example/Game.exe","overrides":{"excluded":true}}
+  ],
+  "conditions": []
+}

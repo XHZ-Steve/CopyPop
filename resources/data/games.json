@@ -1,0 +1,9 @@
+[
+  {"name":"Counter-Strike 2","suffix":"/steamapps/common/counter-strike global offensive/game/bin/win64/cs2.exe"},
+  {"name":"Dota 2","suffix":"/steamapps/common/dota 2 beta/game/bin/win64/dota2.exe"},
+  {"name":"Apex Legends","suffix":"/steamapps/common/apex legends/r5apex.exe"},
+  {"name":"Elden Ring","suffix":"/steamapps/common/elden ring/game/eldenring.exe"},
+  {"name":"Cyberpunk 2077","suffix":"/steamapps/common/cyberpunk 2077/bin/x64/cyberpunk2077.exe"},
+  {"name":"VALORANT","suffix":"/valorant/live/shootergame/binaries/win64/valorant-win64-shipping.exe"},
+  {"name":"League of Legends","suffix":"/league of legends/game/league of legends.exe"}
+]
