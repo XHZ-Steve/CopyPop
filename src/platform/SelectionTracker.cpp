@@ -1,6 +1,7 @@
 #include "SelectionTracker.h"
 #include "Windows.h"
 #include <QDateTime>
+#include <objbase.h>
 #include <uiautomation.h>
 #include <atomic>
 #include <condition_variable>
