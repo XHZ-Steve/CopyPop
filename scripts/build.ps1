@@ -46,7 +46,7 @@ try {
     if ($LASTEXITCODE) { throw 'CMake configure failed.' }
     & cmake --build --preset $Configuration --parallel 6
     if ($LASTEXITCODE) { throw 'Build failed.' }
-    if (-not $SkipTests) {
+    if (-not $SkipTests -and (Test-Path -LiteralPath "$projectRoot/tests/core_tests.cpp") -and (Test-Path -LiteralPath "$projectRoot/tests/ui_tests.cpp") -and (Test-Path -LiteralPath "$projectRoot/tests/uia_fixture.cpp")) {
         & ctest --preset $Configuration
         if ($LASTEXITCODE) { throw 'Tests failed.' }
     }

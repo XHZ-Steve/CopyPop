@@ -50,7 +50,13 @@ ApplicationWindow {
             {key:"fallbackDuration",label:"显示时长",type:"number",min:300,max:4000,step:100,unit:"ms"},
             {key:"fallbackOffsetX",label:"水平偏移",type:"number",min:-120,max:120,step:1,unit:"px"},
             {key:"fallbackOffsetY",label:"垂直偏移",type:"number",min:-120,max:120,step:1,unit:"px"},
-            {key:"fallbackRadius",label:"背景圆角",type:"number",min:0,max:20,step:1,unit:"px"}
+            {key:"fallbackRadius",label:"背景圆角",type:"number",min:0,max:20,step:1,unit:"px"},
+            {key:"fallbackFadeIn",label:"淡入时长",type:"number",min:0,max:800,step:10,unit:"ms"},
+            {key:"fallbackFadeOut",label:"淡出时长",note:"淡入与淡出超过总时长时，按比例缩短。",type:"number",min:0,max:800,step:10,unit:"ms"},
+            {key:"fallbackFadeCurve",label:"淡入淡出曲线",type:"choice",options:[{label:"正弦缓入缓出",value:"inOutSine"},{label:"柔和减速 / 加速",value:"outCubic"},{label:"线性",value:"linear"}]},
+            {key:"fallbackLift",label:"淡入淡出位移",note:"遵循系统减少动画偏好；关闭动画时仅保留透明度变化。",type:"number",min:0,max:16,step:1,unit:"px"},
+            {key:"fallbackFollowStiffness",label:"跟随力度",note:"弹簧加速度系数，越高越快接近光标。按实际动画帧间隔计算。",type:"number",min:80,max:2000,step:20},
+            {key:"fallbackFollowDamping",label:"跟随阻尼",note:"1 为临界阻尼；小于 1 有回弹，大于 1 更沉稳。",type:"number",min:0.4,max:2,step:0.05,decimals:2}
         ],
         [
             {key:"caretEnabled",label:"显示光标提示",note:"仅限可定位的可编辑控件；密码与受保护控件自动跳过。",type:"bool"},
@@ -75,6 +81,17 @@ ApplicationWindow {
             {key:"guardPresentation",label:"演示状态自动休眠",note:"遵循 Windows 演示、忙碌及 Direct3D 全屏状态。",type:"bool"}
         ],[],
         [{key:"diagnostics",label:"本地诊断日志",note:"仅记录事件名称和时间。不会记录剪贴板内容、窗口标题或按键。日志上限约 512 KB。",type:"bool"}]
+    ]
+    property bool showEffectTuning: false
+    property var effectTuningSpecs: [
+        {key:"effectRadius",label:"选区圆角",type:"number",min:0,max:16,step:1,unit:"px"},
+        {key:"effectBorder",label:"轮廓基础宽度",type:"number",min:0,max:4,step:0.1,decimals:1,unit:"px"},
+        {key:"shimmerWidth",label:"流光宽度",note:"相对于每段选区宽度。",type:"number",min:10,max:100,step:1,unit:"%"},
+        {key:"shimmerAngle",label:"流光倾角",type:"number",min:-45,max:45,step:1,unit:"°"},
+        {key:"pulseCycles",label:"脉冲次数",type:"number",min:1,max:6,step:1},
+        {key:"dissolveDensity",label:"消散粒子密度",note:"每 100 px 的粒子数，每段最多 48 个。",type:"number",min:4,max:40,step:1},
+        {key:"dissolveTravel",label:"消散移动距离",type:"number",min:0,max:100,step:1,unit:"px"},
+        {key:"effectDebugBounds",label:"显示选区调试边界",note:"在预览和实际特效中标出真实选区；仅播放期间显示。",type:"bool"}
     ]
     Theme { id: tokens }
     palette.window: tokens.background
@@ -138,26 +155,7 @@ ApplicationWindow {
                 ColumnLayout {
                     width: scroller.availableWidth; spacing: 18
                     Preview { visible: settingsWindow.page === 1; Layout.fillWidth: true; theme: tokens }
-                    Rectangle {
-                        visible: settingsWindow.page === 2
-                        Layout.fillWidth: true; implicitHeight: 190; radius: 12; color: tokens.surface; border.color: tokens.border
-                        ColumnLayout {
-                            anchors.fill: parent; anchors.margins: 20; spacing: 12
-                            Label { text: "光标旁的复制反馈"; color: tokens.text; font.weight: Font.DemiBold }
-                            CopyToast {
-                                id: toastPreview; objectName: "fallback-preview"
-                                Layout.alignment: Qt.AlignHCenter
-                                Layout.preferredWidth: Math.min(naturalWidth,scroller.availableWidth-48)
-                                Layout.preferredHeight: naturalHeight
-                                preview: true
-                                settings: Object.assign({},Config.values,{reducedMotion:App.reducedMotion})
-                            }
-                            RowLayout {
-                                ActionButton { text: "播放预览"; onClicked: toastPreview.play() }
-                                Label { text: Config.values.fallbackEnabled ? "设置即时保存" : "提示已关闭，仍可预览样式"; color: tokens.muted; font.pixelSize: 12; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-                            }
-                        }
-                    }
+                    FallbackPreview { visible: settingsWindow.page === 2; Layout.fillWidth: true; theme: tokens }
 
                     RowLayout {
                         visible: settingsWindow.page === 1; Layout.fillWidth: true
@@ -178,6 +176,27 @@ ApplicationWindow {
                                     required property var modelData
                                     Layout.fillWidth: true; spec: modelData; theme: tokens
                                     onEdit: function(value) { if(Config.set(spec.key,value) && spec.key==="color") Config.set("preset","custom") }
+                                }
+                            }
+                        }
+                    }
+                    StyledCheckBox {
+                        visible: settingsWindow.page === 1
+                        text: "展开复制特效调试参数"; checked: settingsWindow.showEffectTuning
+                        onToggled: settingsWindow.showEffectTuning=checked
+                    }
+                    Rectangle {
+                        visible: settingsWindow.page === 1 && settingsWindow.showEffectTuning
+                        Layout.fillWidth: true; implicitHeight: tuningRows.implicitHeight
+                        radius: 12; color: tokens.surface; border.color: tokens.border
+                        ColumnLayout {
+                            id: tuningRows; width: parent.width; spacing: 0
+                            Repeater {
+                                model: settingsWindow.effectTuningSpecs
+                                SettingRow {
+                                    required property var modelData
+                                    Layout.fillWidth: true; spec: modelData; theme: tokens
+                                    onEdit: function(value) { Config.set(spec.key,value) }
                                 }
                             }
                         }

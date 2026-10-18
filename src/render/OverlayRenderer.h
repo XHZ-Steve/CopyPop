@@ -2,6 +2,7 @@
 #include <QList>
 #include <QRectF>
 #include <QVariantMap>
+#include <QObject>
 #include <memory>
 #include <windows.h>
 class QQmlEngine;
@@ -15,7 +16,8 @@ public:
     virtual void hide() = 0;
     virtual bool visible() const = 0;
 };
-class OverlayRenderer final : public IOverlayRenderer {
+class OverlayRenderer final : public QObject, public IOverlayRenderer {
+    Q_OBJECT
 public:
     explicit OverlayRenderer(QQmlEngine *engine);
     ~OverlayRenderer() override;
@@ -23,6 +25,10 @@ public:
     void move(const QList<QRectF> &rects) override;
     void hide() override;
     bool visible() const override;
+signals:
+    void followFrame(double seconds);
+private slots:
+    void frame(double seconds);
 private:
     void layout(const QList<QRectF> &rects,bool start);
     QQmlEngine *m_engine;

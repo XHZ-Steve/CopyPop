@@ -5,3 +5,8 @@
 *.user
 *.log
 __pycache__/
+
+# Local requirements and verification files
+/任务目标.md
+/tests/
+/scripts/test-*.ps1

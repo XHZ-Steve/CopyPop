@@ -3,15 +3,18 @@ import QtQuick.Controls.Basic
 Item {
     id: overlay
     property var regions: []
-    property var settings: ({})
+    property var settings: Config.values
     property string kind: ""
     property real caretAlpha: 0
+    property bool following: false
+    signal frameTick(real seconds)
+    FrameAnimation { running: overlay.following; onTriggered: overlay.frameTick(frameTime) }
     function play() {
-        if(kind==="copied") { for(var i=0;i<toasts.count;i++) toasts.itemAt(i).play() }
+        if(kind==="copied") { copiedToast.play(); following=true }
         else if(kind.length) caretMotion.restart()
         else layer.start()
     }
-    function cancel() { layer.cancel(); caretMotion.stop(); caretAlpha = 0; for(var i=0;i<toasts.count;i++) toasts.itemAt(i).cancel() }
+    function cancel() { following=false; layer.cancel(); caretMotion.stop(); caretAlpha = 0; copiedToast.cancel() }
     EffectLayer { id: layer; anchors.fill: parent; regions: overlay.regions; settings: overlay.settings }
     Repeater {
         model: overlay.kind.length && overlay.kind!=="copied" ? overlay.regions : []
@@ -27,14 +30,12 @@ Item {
             }
         }
     }
-    Repeater {
-        id: toasts
-        model: overlay.kind==="copied" ? overlay.regions : []
-        delegate: CopyToast {
-            required property var modelData
-            x: modelData.x; y: modelData.y; width: modelData.w; height: modelData.h
-            settings: overlay.settings
-        }
+    CopyToast {
+        id: copiedToast
+        property var region: overlay.regions.length ? overlay.regions[0] : ({x:0,y:0,w:0,h:0})
+        x: region.x; y: region.y; width: region.w; height: region.h
+        settings: Object.assign({},Config.values,overlay.settings)
+        onRunningChanged: if(!running) overlay.following=false
     }
     SequentialAnimation {
         id: caretMotion

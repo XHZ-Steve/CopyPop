@@ -10,6 +10,20 @@ Item {
     readonly property int rowHeight: 42
     readonly property int rowSpacing: 4
     readonly property bool animate: !App.reducedMotion
+    property bool ready: false
+    Component.onCompleted: { selectedFill.topEdge=currentIndex*(rowHeight+rowSpacing); selectedFill.bottomEdge=selectedFill.topEdge+rowHeight; ready=true }
+    onCurrentIndexChanged: if(ready) moveSelection()
+    onAnimateChanged: if(ready) moveSelection()
+    function moveSelection() {
+        selectionMotion.stop()
+        var top=currentIndex*(rowHeight+rowSpacing), bottom=top+rowHeight
+        if(!animate || !ready) { selectedFill.topEdge=top; selectedFill.bottomEdge=bottom; return }
+        // Extend the leading edge first, then let the trailing edge catch up.
+        extendTop.to=Math.min(selectedFill.topEdge,top)
+        extendBottom.to=Math.max(selectedFill.bottomEdge,bottom)
+        retractTop.to=top; retractBottom.to=bottom
+        selectionMotion.start()
+    }
     implicitHeight: pages.length*rowHeight+Math.max(0,pages.length-1)*rowSpacing
     signal selected(int index)
     Theme { id: tokens }
@@ -18,15 +32,28 @@ Item {
         width: parent.width; height: navigation.rowHeight; radius: 8
         y: navigation.hoverPosition*(navigation.rowHeight+navigation.rowSpacing)
         color: tokens.surface; opacity: navigation.hoveredIndex>=0 ? 1 : 0
-        Behavior on y { enabled: navigation.animate; NumberAnimation { duration: 220; easing.type: Easing.InOutCubic } }
+        Behavior on y { enabled: navigation.animate; NumberAnimation { duration: 100; easing.type: Easing.InOutCubic } }
         Behavior on opacity { NumberAnimation { duration: navigation.animate ? 100 : 0 } }
     }
     Rectangle {
+        id: selectedFill
         objectName: "sidebar-selection-fill"
-        width: parent.width; height: navigation.rowHeight; radius: 8
-        y: navigation.currentIndex*(navigation.rowHeight+navigation.rowSpacing)
+        property real topEdge: navigation.currentIndex*(navigation.rowHeight+navigation.rowSpacing)
+        property real bottomEdge: topEdge+navigation.rowHeight
+        width: parent.width; height: Math.max(navigation.rowHeight,bottomEdge-topEdge); radius: 8
+        y: topEdge
         color: tokens.selected
-        Behavior on y { enabled: navigation.animate; NumberAnimation { duration: 240; easing.type: Easing.InOutCubic } }
+    }
+    SequentialAnimation {
+        id: selectionMotion
+        ParallelAnimation {
+            NumberAnimation { id: extendTop; target: selectedFill; property: "topEdge"; duration: 85; easing.type: Easing.OutCubic }
+            NumberAnimation { id: extendBottom; target: selectedFill; property: "bottomEdge"; duration: 85; easing.type: Easing.OutCubic }
+        }
+        ParallelAnimation {
+            NumberAnimation { id: retractTop; target: selectedFill; property: "topEdge"; duration: 230; easing.type: Easing.OutCubic }
+            NumberAnimation { id: retractBottom; target: selectedFill; property: "bottomEdge"; duration: 230; easing.type: Easing.OutCubic }
+        }
     }
     Column {
         anchors.fill: parent; spacing: navigation.rowSpacing

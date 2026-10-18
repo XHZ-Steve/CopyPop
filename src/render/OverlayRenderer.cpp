@@ -20,6 +20,9 @@ void OverlayRenderer::show(HWND owner,const QList<QRectF> &rects,const QVariantM
     hide(); m_owner = owner; m_settings = settings; m_kind = kind; layout(rects,true);
 }
 void OverlayRenderer::move(const QList<QRectF> &rects) { if (visible()) layout(rects,false); }
+void OverlayRenderer::frame(double seconds) {
+    if(m_kind=="copied" && !m_views.isEmpty() && sender()==m_views.first()->rootObject() && visible()) emit followFrame(seconds);
+}
 void OverlayRenderer::layout(const QList<QRectF> &rects,bool start) {
     int index = 0;
     for (auto *screen : QGuiApplication::screens()) {
@@ -47,6 +50,7 @@ void OverlayRenderer::layout(const QList<QRectF> &rects,bool start) {
             view->setFlags(Qt::Tool|Qt::FramelessWindowHint|Qt::WindowDoesNotAcceptFocus|Qt::WindowTransparentForInput|Qt::NoDropShadowWindowHint);
             view->setResizeMode(QQuickView::SizeRootObjectToView);
             view->setSource(QUrl("qrc:/qml/Overlay.qml"));
+            if(view->rootObject()) connect(view->rootObject(),SIGNAL(frameTick(double)),this,SLOT(frame(double)));
             m_views.append(view);
         }
         auto *view = m_views[index++]; if (!view->rootObject()) continue;
@@ -58,9 +62,9 @@ void OverlayRenderer::layout(const QList<QRectF> &rects,bool start) {
         for (const auto &c : clipped) local.append(QVariantMap{{"x",(c.x()-bounds.x())/scale},{"y",(c.y()-bounds.y())/scale},{"w",c.width()/scale},{"h",c.height()/scale}});
         auto *root = view->rootObject();
         root->setProperty("regions",local);
-        root->setProperty("settings",m_settings);
-        root->setProperty("kind",m_kind);
         if (start) {
+            root->setProperty("settings",m_settings);
+            root->setProperty("kind",m_kind);
             auto hwnd = reinterpret_cast<HWND>(view->winId());
             auto ex = GetWindowLongPtrW(hwnd,GWL_EXSTYLE);
             SetWindowLongPtrW(hwnd,GWL_EXSTYLE,ex|WS_EX_TRANSPARENT|WS_EX_NOACTIVATE|WS_EX_TOOLWINDOW);
@@ -72,5 +76,9 @@ void OverlayRenderer::layout(const QList<QRectF> &rects,bool start) {
             QMetaObject::invokeMethod(root,"play");
         }
     }
-    while (index < m_views.size()) m_views[index++]->hide();
+    while (index < m_views.size()) {
+        auto *view=m_views[index++];
+        if(view->rootObject()) QMetaObject::invokeMethod(view->rootObject(),"cancel");
+        view->hide();
+    }
 }

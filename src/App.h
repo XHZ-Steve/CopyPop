@@ -1,5 +1,6 @@
 #pragma once
 #include "core/Config.h"
+#include "core/MotionFollower.h"
 #include "platform/Windows.h"
 #include "platform/SelectionTracker.h"
 #include "render/OverlayRenderer.h"
@@ -62,6 +63,7 @@ private:
     void animate(const QList<QRectF> &rects,bool caret = false,bool fallback = false);
     void cancel();
     void tick();
+    void followToast(double seconds);
     void query(QueryReason reason);
     void trayUpdate();
     void notify(const QString &message);
@@ -73,6 +75,7 @@ private:
     ClipboardClassifier m_classifier;
     SelectionTracker m_tracker;
     OverlayRenderer m_renderer;
+    MotionFollower m_toastMotion;
     QSystemTrayIcon m_tray;
     std::unique_ptr<QMenu> m_menu;
     QPointer<QWindow> m_settings, m_welcome;

@@ -22,6 +22,9 @@
 
 App::App(Config *config,QQmlEngine *engine,bool testing,QObject *parent)
     : QObject(parent),m_config(config),m_engine(engine),m_events(this),m_classifier(m_events.handle()),m_tracker(m_events.handle(),this),m_renderer(engine),m_menu(std::make_unique<QMenu>()),m_testing(testing) {
+    static const int followerType=qmlRegisterType<MotionFollower>("CopyPop",1,0,"MotionFollower");
+    Q_UNUSED(followerType);
+    connect(&m_renderer,&OverlayRenderer::followFrame,this,&App::followToast);
     QFile games(":/resources/data/games.json"); if (games.open(QIODevice::ReadOnly)) m_games = QJsonDocument::fromJson(games.readAll()).array().toVariantList();
     m_sequence = GetClipboardSequenceNumber();
     m_kind=Win::clipboardFormatKind(); if(m_kind=="text") m_classifier.request(m_sequence);
@@ -210,6 +213,11 @@ void App::animate(const QList<QRectF> &rects,bool caret,bool fallback) {
     settings["reducedMotion"]=reducedMotion();
     if (m_config->value("respectReducedMotion").toBool() && Win::reducedMotion()) { settings["effect"] = "pulse"; settings["duration"] = 250; settings["intensity"] = 0.2; }
     m_owner = m_foreground; m_ownerRect = Win::windowRect(m_owner); m_rects = rects; m_caret = caret; m_fallback=fallback;
+    if(fallback) {
+        m_toastMotion.stiffness=settings.value("fallbackFollowStiffness").toDouble();
+        m_toastMotion.damping=settings.value("fallbackFollowDamping").toDouble();
+        m_toastMotion.reset(rects.first().topLeft());
+    }
     m_animationClock.start(); m_followClock.start(); m_lastGeometry = QDateTime::currentMSecsSinceEpoch(); m_lastMotion = {};
     m_renderer.show(m_owner,rects,settings,fallback?QString("copied"):caret?m_kind:QString());
     m_attachedTimer.start(); ++m_animations;
@@ -229,8 +237,8 @@ void App::tick() {
     if (rect.size() != m_ownerRect.size()) { cancel(); m_tracker.invalidate(); return; }
     const auto delta = rect.topLeft()-m_ownerRect.topLeft();
     if(m_fallback) {
-        const auto tip=toastRect(); if(tip.isEmpty()) {cancel();return;}
-        m_rects={tip}; m_ownerRect=rect; m_renderer.move(m_rects);
+        if(toastRect().isEmpty()) {cancel();return;}
+        m_ownerRect=rect;
     } else if (!delta.isNull()) {
         if (!m_effective.value("dragFollow").toBool()) { cancel(); return; }
         for (auto &r : m_rects) r.translate(delta);
@@ -254,6 +262,23 @@ void App::tick() {
             auto predicted = m_rects; for (auto &r : predicted) r.translate(m_lastMotion*0.25); m_renderer.move(predicted);
         }
     }
+}
+void App::followToast(double seconds) {
+    if(!m_fallback) return;
+    tick(); // Recheck ownership, occlusion and protection before each rendered movement.
+    if(!m_fallback) return;
+    const auto target=toastRect();
+    if(target.isEmpty()) {cancel();return;}
+    if(reducedMotion() || target.size()!=m_rects.first().size()) m_toastMotion.reset(target.topLeft());
+    else { m_toastMotion.target=target.topLeft(); m_toastMotion.advance(seconds); }
+    auto tip=QRectF(m_toastMotion.position(),target.size());
+    MONITORINFO monitor{}; monitor.cbSize=sizeof(monitor);
+    const POINT point{LONG(target.center().x()),LONG(target.center().y())};
+    if(!GetMonitorInfoW(MonitorFromPoint(point,MONITOR_DEFAULTTONEAREST),&monitor)) {cancel();return;}
+    const auto area=Win::clientRect(m_owner).intersected(QRect(monitor.rcWork.left,monitor.rcWork.top,monitor.rcWork.right-monitor.rcWork.left,monitor.rcWork.bottom-monitor.rcWork.top));
+    const auto position=QPointF(qBound(double(area.left()),tip.x(),double(area.x()+area.width())-tip.width()),qBound(double(area.top()),tip.y(),double(area.y()+area.height())-tip.height()));
+    if(position!=tip.topLeft()) {m_toastMotion.reset(position);tip.moveTopLeft(position);}
+    m_rects={tip}; m_renderer.move(m_rects);
 }
 QString App::diagnostics() const {
     return QString("CopyPop 1.0.0 · Qt %1\n剪贴板监听：%2\n选区能力：%3\n剪贴板更新：%4 · 动画：%5 · 查询超时：%6\nUIA 预算：180 ms · 单个 MTA 工作线程\n配置：%7\n日志：%8\n启动项：%9").arg(QT_VERSION_STR,m_events.valid()?"已注册":"失败",m_tracker.status()).arg(m_updates).arg(m_animations).arg(m_timeouts).arg(m_config->fileName(),logPath(),Win::startupEnabled()?"已启用":"未启用");

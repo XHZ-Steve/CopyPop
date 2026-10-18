@@ -6,7 +6,7 @@ Rectangle {
     objectName: "live-preview"
     property var theme
     property bool compact: false
-    implicitHeight: compact ? 160 : 210
+    implicitHeight: compact ? 160 : 280
     radius: 12; color: theme.surface; border.color: theme.border
     ColumnLayout {
         anchors.fill: parent; anchors.margins: 22; spacing: 12
@@ -30,7 +30,17 @@ Rectangle {
             }
             EffectLayer { id: actual; anchors.fill: parent; regions: [{x:0,y:0,w:Math.min(sampleArea.width,310),h:28},{x:0,y:30,w:Math.min(sampleArea.width,275),h:28}]; settings: Config.values }
         }
-        ActionButton { text: "播放预览"; visible: !preview.compact; onClicked: preview.play(); Accessible.name: "播放当前动画设置" }
+        RowLayout {
+            visible: !preview.compact; Layout.fillWidth: true
+            ActionButton { text: "播放预览"; onClicked: preview.play(); Accessible.name: "播放当前动画设置" }
+            ActionButton { objectName: "effect-pause"; text: actual.paused ? "继续" : "暂停"; enabled: actual.playing; onClicked: actual.togglePause() }
+            Label { text: actual.chosenEffect+" · "+actual.regions.length+" 段选区 · "+Math.round(actual.baseDuration)+" ms"; color: preview.theme.muted; font.pixelSize: 11; Layout.fillWidth: true; elide: Text.ElideRight }
+        }
+        RowLayout {
+            visible: !preview.compact; Layout.fillWidth: true
+            StyledSlider { objectName: "effect-timeline"; Layout.fillWidth: true; from: 0; to: 1; stepSize: 0.001; value: actual.progress; onMoved: actual.seek(value); Accessible.name: "拖动检查特效进度" }
+            Label { text: Math.round(actual.progress*100)+"%"; color: preview.theme.muted; font.pixelSize: 12; Layout.preferredWidth: 36; horizontalAlignment: Text.AlignRight }
+        }
     }
     function play() {
         if(sample.selectionStart === sample.selectionEnd) sample.selectAll();
