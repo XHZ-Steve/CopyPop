@@ -38,8 +38,7 @@ Rectangle {
         }
         RowLayout {
             visible: !preview.compact; Layout.fillWidth: true
-            StyledSlider { objectName: "effect-timeline"; Layout.fillWidth: true; from: 0; to: 1; stepSize: 0.001; value: actual.progress; onMoved: actual.seek(value); Accessible.name: "拖动检查特效进度" }
-            Label { text: Math.round(actual.progress*100)+"%"; color: preview.theme.muted; font.pixelSize: 12; Layout.preferredWidth: 36; horizontalAlignment: Text.AlignRight }
+            NumericSlider { Layout.fillWidth: true; controlName: "effect-timeline"; label: "特效预览进度"; from: 0; to: 100; stepSize: 0.1; decimals: 1; unit: "%"; value: actual.progress*100; onEdited: function(value) { actual.seek(value/100) } }
         }
     }
     function play() {

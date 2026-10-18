@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
-import QtQuick.Dialogs as Dialogs
 
 Rectangle {
     id: row
@@ -9,7 +8,13 @@ Rectangle {
     required property var spec
     property var values: Config.values
     property var theme
+    property var colorAnchor: null
     signal edit(var value)
+    function openColor(anchor) {
+        colorAnchor=anchor
+        if(!pickerLoader.active) pickerLoader.active=true
+        else pickerLoader.item.openFor(anchor,String(values[spec.key]))
+    }
     width: parent ? parent.width : 600
     implicitHeight: Math.max(76, description.implicitHeight + 30)
     color: "transparent"
@@ -49,18 +54,14 @@ Rectangle {
             Accessible.name: row.spec.label
             onActivated: row.edit(currentValue)
         }
-        RowLayout {
+        NumericSlider {
             visible: row.spec.type === "number"
-            Layout.preferredWidth: 204; Layout.maximumWidth: 204; spacing: 8
-            StyledSlider {
-                objectName: row.spec.key + "-slider"
-                Layout.fillWidth: true
-                from: row.spec.min || 0; to: row.spec.max || 1; stepSize: row.spec.step || 0.05
-                value: Number(row.values[row.spec.key] || 0)
-                Accessible.name: row.spec.label
-                onMoved: row.edit(value)
-            }
-            Label { Layout.preferredWidth: 47; horizontalAlignment: Text.AlignRight; color: row.theme.muted; text: Number(row.values[row.spec.key]).toFixed(row.spec.decimals || 0) + (row.spec.unit || ""); font.pixelSize: 12 }
+            Layout.preferredWidth: 250; Layout.maximumWidth: 250
+            controlName: row.spec.key; label: row.spec.label
+            from: row.spec.min === undefined ? 0 : row.spec.min; to: row.spec.max === undefined ? 1 : row.spec.max
+            stepSize: row.spec.step || 0.05; decimals: row.spec.decimals || 0; unit: row.spec.unit || ""
+            value: row.spec.type === "number" ? Number(row.values[row.spec.key]) : 0
+            onEdited: function(value) { row.edit(value) }
         }
         TextField {
             id: entry
@@ -82,7 +83,7 @@ Rectangle {
                 objectName: row.spec.key+"-picker"
                 Layout.preferredWidth: 42; Layout.preferredHeight: 38
                 Accessible.name: "选择"+row.spec.label
-                onClicked: { colorDialog.selectedColor=String(row.values[row.spec.key]); colorDialog.open() }
+                onClicked: row.openColor(this)
                 contentItem: Rectangle { radius: 5; color: String(row.values[row.spec.key]); border.color: row.theme.border }
             }
             TextField {
@@ -104,11 +105,14 @@ Rectangle {
             onActivated: row.edit(currentText)
         }
     }
-    Dialogs.ColorDialog {
-        id: colorDialog; objectName: row.spec.key+"-color-dialog"
-        title: "选择"+row.spec.label
-        options: Dialogs.ColorDialog.ShowAlphaChannel
-        onAccepted: row.edit(selectedColor.toString())
+    Loader {
+        id: pickerLoader; active: false
+        onLoaded: item.openFor(row.colorAnchor,String(row.values[row.spec.key]))
+        sourceComponent: ColorPopover {
+            objectName: row.spec.key+"-color-dialog"
+            title: "选择"+row.spec.label; theme: row.theme
+            onAccepted: function(color) { row.edit(color.toString()) }
+        }
     }
     Rectangle { anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.right: parent.right; anchors.leftMargin: 20; anchors.rightMargin: 20; height: 1; color: row.theme.border; opacity: 0.55 }
 }

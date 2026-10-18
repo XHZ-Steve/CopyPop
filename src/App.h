@@ -29,6 +29,7 @@ public:
     QString diagnostics() const;
     QString notice() const { return m_notice; }
     bool reducedMotion() const;
+    Q_INVOKABLE qint64 monotonicTime() const { return m_uptime.elapsed(); }
     void start(bool background);
     Q_INVOKABLE void showSettings();
     Q_INVOKABLE void showWelcome();
@@ -80,7 +81,7 @@ private:
     std::unique_ptr<QMenu> m_menu;
     QPointer<QWindow> m_settings, m_welcome;
     QTimer m_guardTimer, m_attachedTimer, m_resumeTimer, m_copyDeadline, m_snapshotDebounce;
-    QElapsedTimer m_animationClock, m_followClock;
+    QElapsedTimer m_animationClock, m_followClock, m_uptime;
     HWND m_foreground = nullptr, m_owner = nullptr;
     QString m_path, m_recentPath, m_status, m_kind = "other", m_notice;
     QVariantMap m_effective;

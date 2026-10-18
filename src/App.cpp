@@ -22,6 +22,7 @@
 
 App::App(Config *config,QQmlEngine *engine,bool testing,QObject *parent)
     : QObject(parent),m_config(config),m_engine(engine),m_events(this),m_classifier(m_events.handle()),m_tracker(m_events.handle(),this),m_renderer(engine),m_menu(std::make_unique<QMenu>()),m_testing(testing) {
+    m_uptime.start();
     static const int followerType=qmlRegisterType<MotionFollower>("CopyPop",1,0,"MotionFollower");
     Q_UNUSED(followerType);
     connect(&m_renderer,&OverlayRenderer::followFrame,this,&App::followToast);

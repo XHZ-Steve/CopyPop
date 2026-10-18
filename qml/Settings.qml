@@ -21,77 +21,77 @@ ApplicationWindow {
     ]
     property var specs: [
         [
-            {key:"enabled",label:"启用 CopyPop",note:"复制特效与光标提示的总开关。",type:"bool"},
+            {section:"运行行为",key:"enabled",label:"启用 CopyPop",note:"复制特效与光标提示的总开关。",type:"bool"},
             {key:"startup",label:"开机启动",note:"登录当前 Windows 账号时在托盘中启动。",type:"bool"},
-            {key:"theme",label:"外观",type:"choice",options:[{label:"跟随系统",value:"system"},{label:"浅色",value:"light"},{label:"深色",value:"dark"}]},
-            {key:"closeToTray",label:"关闭后留在托盘",note:"关闭设置窗口后继续运行；可从托盘菜单退出。",type:"bool"}
+            {key:"closeToTray",label:"关闭后留在托盘",note:"关闭设置窗口后继续运行；可从托盘菜单退出。",type:"bool"},
+            {section:"外观",key:"theme",label:"外观",type:"choice",options:[{label:"跟随系统",value:"system"},{label:"浅色",value:"light"},{label:"深色",value:"dark"}]}
         ],
         [
-            {key:"effectsEnabled",label:"复制特效",note:"仅在有复制操作证据时播放。默认不播放粘贴动画。",type:"bool"},
+            {section:"启用与模式",key:"effectsEnabled",label:"复制特效",note:"仅在有复制操作证据时播放。默认不播放粘贴动画。",type:"bool"},
             {key:"effect",label:"动画类型",type:"choice",options:[{label:"Shimmer · 流光",value:"shimmer"},{label:"Pulse · 脉冲",value:"pulse"},{label:"Dissolve · 消散",value:"dissolve"}]},
             {key:"adaptive",label:"自适应选区",note:"短文本水平流光，多行整体扫光，大选区轻量轮廓。",type:"bool"},
-            {key:"color",label:"特效颜色",note:"点击色块打开取色器，也可输入色值。",type:"color"},
-            {key:"speed",label:"播放速度",type:"number",min:0.25,max:3,step:0.05,decimals:2,unit:"×"},
-            {key:"duration",label:"基础时长",type:"number",min:150,max:2500,step:50,unit:"ms"},
+            {section:"颜色与强度",key:"color",label:"特效颜色",note:"点击色块打开取色器，也可输入色值。",type:"color"},
             {key:"intensity",label:"强度",type:"number",min:0.1,max:1,step:0.05,decimals:2},
             {key:"opacity",label:"不透明度",type:"number",min:0.05,max:1,step:0.05,decimals:2},
+            {section:"播放节奏",key:"speed",label:"播放速度",type:"number",min:0.25,max:3,step:0.05,decimals:2,unit:"×"},
+            {key:"duration",label:"基础时长",type:"number",min:150,max:2500,step:50,unit:"ms"},
             {key:"curve",label:"动画曲线",type:"choice",options:[{label:"柔和减速",value:"outCubic"},{label:"正弦缓入缓出",value:"inOutSine"},{label:"线性",value:"linear"}]},
-            {key:"respectReducedMotion",label:"遵循系统动画偏好",note:"Windows 关闭动画效果时，使用短暂、低强度的脉冲。",type:"bool"}
+            {section:"系统偏好",key:"respectReducedMotion",label:"遵循系统动画偏好",note:"Windows 关闭动画效果时，使用短暂、低强度的脉冲。",type:"bool"}
         ],
         [
-            {key:"fallbackEnabled",label:"启用 Copied 提示",note:"无法获得精确选区、查询超时或关闭复制特效时，显示光标旁提示。",type:"bool"},
-            {key:"fallbackText",label:"自定义字样",note:"最多 80 个字符，以纯文本显示。",type:"text",maxLength:80},
-            {key:"fallbackTextColor",label:"文字颜色",type:"color"},
-            {key:"fallbackBackgroundColor",label:"背景颜色",type:"color"},
+            {section:"启用",key:"fallbackEnabled",label:"启用 Copied 提示",note:"无法获得精确选区、查询超时或关闭复制特效时，显示光标旁提示。",type:"bool"},
+            {section:"文字内容与字体",key:"fallbackText",label:"自定义字样",note:"最多 80 个字符，以纯文本显示。",type:"text",maxLength:80},
             {key:"fallbackFont",label:"字体",type:"font"},
             {key:"fallbackFontSize",label:"字号",type:"number",min:10,max:36,step:1,unit:"px"},
             {key:"fallbackBold",label:"加粗文字",type:"bool"},
+            {key:"fallbackTextColor",label:"文字颜色",type:"color"},
+            {section:"背景与外观",key:"fallbackBackgroundColor",label:"背景颜色",type:"color"},
             {key:"fallbackOpacity",label:"整体不透明度",type:"number",min:0.1,max:1,step:0.05,decimals:2},
-            {key:"fallbackDuration",label:"显示时长",type:"number",min:300,max:4000,step:100,unit:"ms"},
-            {key:"fallbackOffsetX",label:"水平偏移",type:"number",min:-120,max:120,step:1,unit:"px"},
-            {key:"fallbackOffsetY",label:"垂直偏移",type:"number",min:-120,max:120,step:1,unit:"px"},
             {key:"fallbackRadius",label:"背景圆角",type:"number",min:0,max:20,step:1,unit:"px"},
+            {section:"显示位置",key:"fallbackOffsetX",label:"水平偏移",type:"number",min:-120,max:120,step:1,unit:"px"},
+            {key:"fallbackOffsetY",label:"垂直偏移",type:"number",min:-120,max:120,step:1,unit:"px"},
+            {section:"播放与淡入淡出",key:"fallbackDuration",label:"显示时长",type:"number",min:300,max:4000,step:100,unit:"ms"},
             {key:"fallbackFadeIn",label:"淡入时长",type:"number",min:0,max:800,step:10,unit:"ms"},
             {key:"fallbackFadeOut",label:"淡出时长",note:"淡入与淡出超过总时长时，按比例缩短。",type:"number",min:0,max:800,step:10,unit:"ms"},
             {key:"fallbackFadeCurve",label:"淡入淡出曲线",type:"choice",options:[{label:"正弦缓入缓出",value:"inOutSine"},{label:"柔和减速 / 加速",value:"outCubic"},{label:"线性",value:"linear"}]},
             {key:"fallbackLift",label:"淡入淡出位移",note:"遵循系统减少动画偏好；关闭动画时仅保留透明度变化。",type:"number",min:0,max:16,step:1,unit:"px"},
-            {key:"fallbackFollowStiffness",label:"跟随力度",note:"弹簧加速度系数，越高越快接近光标。按实际动画帧间隔计算。",type:"number",min:80,max:2000,step:20},
+            {section:"光标跟随",key:"fallbackFollowStiffness",label:"跟随力度",note:"弹簧加速度系数，越高越快接近光标。按实际动画帧间隔计算。",type:"number",min:80,max:2000,step:20},
             {key:"fallbackFollowDamping",label:"跟随阻尼",note:"1 为临界阻尼；小于 1 有回弹，大于 1 更沉稳。",type:"number",min:0.4,max:2,step:0.05,decimals:2}
         ],
         [
-            {key:"caretEnabled",label:"显示光标提示",note:"仅限可定位的可编辑控件；密码与受保护控件自动跳过。",type:"bool"},
-            {key:"caretSize",label:"图标大小",type:"number",min:14,max:48,step:1,unit:"px"},
-            {key:"caretOffsetX",label:"水平偏移",type:"number",min:-80,max:80,step:1,unit:"px"},
+            {section:"启用",key:"caretEnabled",label:"显示光标提示",note:"仅限可定位的可编辑控件；密码与受保护控件自动跳过。",type:"bool"},
+            {section:"图标外观",key:"caretSize",label:"图标大小",type:"number",min:14,max:48,step:1,unit:"px"},
+            {key:"caretOpacity",label:"不透明度",type:"number",min:0.1,max:1,step:0.05,decimals:2},
+            {section:"显示位置",key:"caretOffsetX",label:"水平偏移",type:"number",min:-80,max:80,step:1,unit:"px"},
             {key:"caretOffsetY",label:"垂直偏移",type:"number",min:-80,max:80,step:1,unit:"px"},
-            {key:"caretDuration",label:"显示时长",type:"number",min:300,max:4000,step:100,unit:"ms"},
-            {key:"caretFade",label:"淡入 / 淡出时长",type:"number",min:50,max:600,step:10,unit:"ms"},
-            {key:"caretOpacity",label:"不透明度",type:"number",min:0.1,max:1,step:0.05,decimals:2}
+            {section:"播放时序",key:"caretDuration",label:"显示时长",type:"number",min:300,max:4000,step:100,unit:"ms"},
+            {key:"caretFade",label:"淡入 / 淡出时长",type:"number",min:50,max:600,step:10,unit:"ms"}
         ],
         [
-            {key:"hybridTracking",label:"智能混合追踪",note:"结合 UI Automation、焦点事件与短期几何快照。关闭后仅保留鼠标附近的复制反馈。",type:"bool"},
-            {key:"scrollFollow",label:"精确滚动跟随",note:"按需重新查询真实选区。无法及时确认位置时取消特效。",type:"bool"},
+            {section:"追踪策略",key:"hybridTracking",label:"智能混合追踪",note:"结合 UI Automation、焦点事件与短期几何快照。关闭后仅保留鼠标附近的复制反馈。",type:"bool"},
+            {section:"选区与滚动",key:"scrollFollow",label:"精确滚动跟随",note:"按需重新查询真实选区。无法及时确认位置时取消特效。",type:"bool"},
             {key:"predictScroll",label:"短期预测跟随",note:"高级选项，默认关闭。只使用已观测的选区位移，不使用滚轮像素换算。",type:"bool"},
-            {key:"dragFollow",label:"窗口拖动跟随",note:"跟随窗口坐标变化；调整大小导致文本重排时取消特效。",type:"bool"},
-            {key:"dynamicZ",label:"动态窗口层级",note:"显示时置于所属窗口上方，不使用永久全局置顶。前台切换始终取消。",type:"bool"},
+            {section:"窗口跟随",key:"dragFollow",label:"窗口拖动跟随",note:"跟随窗口坐标变化；调整大小导致文本重排时取消特效。",type:"bool"},
+            {section:"层级与裁剪",key:"dynamicZ",label:"动态窗口层级",note:"显示时置于所属窗口上方，不使用永久全局置顶。前台切换始终取消。",type:"bool"},
             {key:"clipRegion",label:"有效区域裁剪",note:"几何查询始终裁剪到控件与客户区；追踪时进一步校验可见区域。",type:"bool"}
         ],
         [
-            {key:"guardFullscreen",label:"全屏自动休眠",note:"识别覆盖显示器的全屏窗口，包括无边框全屏。",type:"bool"},
+            {section:"自动保护",key:"guardFullscreen",label:"全屏自动休眠",note:"识别覆盖显示器的全屏窗口，包括无边框全屏。",type:"bool"},
             {key:"guardGames",label:"已知游戏自动排除",note:"使用内置离线路径清单。其他游戏可在应用规则中添加。",type:"bool"},
             {key:"guardPresentation",label:"演示状态自动休眠",note:"遵循 Windows 演示、忙碌及 Direct3D 全屏状态。",type:"bool"}
         ],[],
-        [{key:"diagnostics",label:"本地诊断日志",note:"仅记录事件名称和时间。不会记录剪贴板内容、窗口标题或按键。日志上限约 512 KB。",type:"bool"}]
+        [{section:"日志记录",key:"diagnostics",label:"本地诊断日志",note:"仅记录事件名称和时间。不会记录剪贴板内容、窗口标题或按键。日志上限约 512 KB。",type:"bool"}]
     ]
     property bool showEffectTuning: false
     property var effectTuningSpecs: [
-        {key:"effectRadius",label:"选区圆角",type:"number",min:0,max:16,step:1,unit:"px"},
+        {section:"通用几何",key:"effectRadius",label:"选区圆角",type:"number",min:0,max:16,step:1,unit:"px"},
         {key:"effectBorder",label:"轮廓基础宽度",type:"number",min:0,max:4,step:0.1,decimals:1,unit:"px"},
-        {key:"shimmerWidth",label:"流光宽度",note:"相对于每段选区宽度。",type:"number",min:10,max:100,step:1,unit:"%"},
+        {section:"流光 · Shimmer",key:"shimmerWidth",label:"流光宽度",note:"相对于每段选区宽度。",type:"number",min:10,max:100,step:1,unit:"%"},
         {key:"shimmerAngle",label:"流光倾角",type:"number",min:-45,max:45,step:1,unit:"°"},
-        {key:"pulseCycles",label:"脉冲次数",type:"number",min:1,max:6,step:1},
-        {key:"dissolveDensity",label:"消散粒子密度",note:"每 100 px 的粒子数，每段最多 48 个。",type:"number",min:4,max:40,step:1},
+        {section:"脉冲 · Pulse",key:"pulseCycles",label:"脉冲次数",type:"number",min:1,max:6,step:1},
+        {section:"消散 · Dissolve",key:"dissolveDensity",label:"消散粒子密度",note:"每 100 px 的粒子数，每段最多 48 个。",type:"number",min:4,max:40,step:1},
         {key:"dissolveTravel",label:"消散移动距离",type:"number",min:0,max:100,step:1,unit:"px"},
-        {key:"effectDebugBounds",label:"显示选区调试边界",note:"在预览和实际特效中标出真实选区；仅播放期间显示。",type:"bool"}
+        {section:"调试显示",key:"effectDebugBounds",label:"显示选区调试边界",note:"在预览和实际特效中标出真实选区；仅播放期间显示。",type:"bool"}
     ]
     Theme { id: tokens }
     palette.window: tokens.background
@@ -165,41 +165,20 @@ ApplicationWindow {
                             ActionButton { required property var modelData; text: modelData.label; highlighted: Config.values.preset===modelData.value; onClicked: App.preset(modelData.value) }
                         }
                     }
-                    Rectangle {
-                        Layout.fillWidth: true; implicitHeight: rowStack.implicitHeight; radius: 12; color: tokens.surface; border.color: tokens.border
-                        visible: settingsWindow.specs[settingsWindow.page].length > 0
-                        ColumnLayout {
-                            id: rowStack; width: parent.width; spacing: 0
-                            Repeater {
-                                model: settingsWindow.specs[settingsWindow.page]
-                                SettingRow {
-                                    required property var modelData
-                                    Layout.fillWidth: true; spec: modelData; theme: tokens
-                                    onEdit: function(value) { if(Config.set(spec.key,value) && spec.key==="color") Config.set("preset","custom") }
-                                }
-                            }
-                        }
+                    SettingsGroups {
+                        Layout.fillWidth: true; visible: specifications.length>0
+                        specifications: settingsWindow.specs[settingsWindow.page]; theme: tokens
+                        onEdited: function(spec,value) { if(Config.set(spec.key,value) && spec.key==="color") Config.set("preset","custom") }
                     }
                     StyledCheckBox {
                         visible: settingsWindow.page === 1
                         text: "展开复制特效调试参数"; checked: settingsWindow.showEffectTuning
                         onToggled: settingsWindow.showEffectTuning=checked
                     }
-                    Rectangle {
-                        visible: settingsWindow.page === 1 && settingsWindow.showEffectTuning
-                        Layout.fillWidth: true; implicitHeight: tuningRows.implicitHeight
-                        radius: 12; color: tokens.surface; border.color: tokens.border
-                        ColumnLayout {
-                            id: tuningRows; width: parent.width; spacing: 0
-                            Repeater {
-                                model: settingsWindow.effectTuningSpecs
-                                SettingRow {
-                                    required property var modelData
-                                    Layout.fillWidth: true; spec: modelData; theme: tokens
-                                    onEdit: function(value) { Config.set(spec.key,value) }
-                                }
-                            }
-                        }
+                    SettingsGroups {
+                        Layout.fillWidth: true; visible: settingsWindow.page===1 && settingsWindow.showEffectTuning
+                        specifications: settingsWindow.effectTuningSpecs; theme: tokens
+                        onEdited: function(spec,value) { Config.set(spec.key,value) }
                     }
                     Rectangle {
                         visible: settingsWindow.page === 0
@@ -275,10 +254,12 @@ ApplicationWindow {
                     }
                     ColumnLayout {
                         visible: settingsWindow.page === 7; Layout.fillWidth: true; spacing: 14
+                        Label { text: "诊断状态"; color: tokens.text; font.weight: Font.DemiBold }
                         Rectangle {
                             Layout.fillWidth: true; implicitHeight: diagnosticText.implicitHeight+36; radius: 10; color: tokens.surface; border.color: tokens.border
                             Label { id: diagnosticText; anchors.fill: parent; anchors.margins: 18; text: App.diagnostics; color: tokens.muted; font.pixelSize: 12; lineHeight: 1.55; wrapMode: Text.WrapAnywhere }
                         }
+                        Label { text: "配置与维护"; color: tokens.text; font.weight: Font.DemiBold }
                         Flow {
                             Layout.fillWidth: true; spacing: 10
                             ActionButton { text: "导入配置"; onClicked: App.importConfig() }
@@ -306,16 +287,16 @@ ApplicationWindow {
         property string path: ""
         property var overrides: ({})
         property var editable: [
-            {key:"excluded",label:"排除此应用",type:"bool"},
+            {section:"范围与开关",key:"excluded",label:"排除此应用",type:"bool"},
             {key:"effectsEnabled",label:"复制特效",type:"bool"},
             {key:"caretEnabled",label:"光标提示",type:"bool"},
             {key:"fallbackEnabled",label:"降级 Copied 提示",type:"bool"},
-            {key:"hybridTracking",label:"智能追踪",type:"bool"},
+            {section:"窗口与选区追踪",key:"hybridTracking",label:"智能追踪",type:"bool"},
             {key:"scrollFollow",label:"滚动跟随",type:"bool"},
             {key:"dragFollow",label:"拖动跟随",type:"bool"},
-            {key:"adaptive",label:"自适应特效",type:"bool"},
+            {section:"特效模式",key:"adaptive",label:"自适应特效",type:"bool"},
             {key:"effect",label:"动画类型",type:"choice",options:[{label:"流光",value:"shimmer"},{label:"脉冲",value:"pulse"},{label:"消散",value:"dissolve"}]},
-            {key:"color",label:"颜色",type:"color"},
+            {section:"特效外观与节奏",key:"color",label:"颜色",type:"color"},
             {key:"duration",label:"时长",type:"number",min:150,max:2500,step:50,unit:"ms"},
             {key:"speed",label:"速度",type:"number",min:0.25,max:3,step:0.05,decimals:2},
             {key:"intensity",label:"强度",type:"number",min:0.1,max:1,step:0.05,decimals:2},
@@ -330,26 +311,14 @@ ApplicationWindow {
                 width: parent.width; spacing: 0
                 Label { text: ruleDialog.path; color: tokens.muted; font.pixelSize: 11; Layout.fillWidth: true; wrapMode: Text.WrapAnywhere; Layout.bottomMargin: 10 }
                 Label { text: "勾选左侧框以覆盖全局设置。取消勾选即恢复继承。"; color: tokens.muted; font.pixelSize: 12; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-                Repeater {
-                    model: ruleDialog.editable
-                    RowLayout {
-                        required property var modelData
-                        Layout.fillWidth: true; spacing: 0
-                        StyledCheckBox {
-                            checked: ruleDialog.overrides[modelData.key] !== undefined
-                            Accessible.name: "覆盖"+modelData.label
-                            onToggled: {
-                                if(checked) ruleDialog.update(modelData.key,modelData.key==="excluded"?false:Config.values[modelData.key]);
-                                else { var o=Object.assign({},ruleDialog.overrides); delete o[modelData.key]; ruleDialog.overrides=o }
-                            }
-                        }
-                        SettingRow {
-                            Layout.fillWidth: true; spec: modelData; theme: tokens
-                            values: Object.assign({},Config.values,{excluded:false},ruleDialog.overrides)
-                            enabled: ruleDialog.overrides[modelData.key] !== undefined
-                            opacity: enabled ? 1 : 0.5
-                            onEdit: function(v) { ruleDialog.update(modelData.key,v) }
-                        }
+                SettingsGroups {
+                    Layout.fillWidth: true; specifications: ruleDialog.editable; theme: tokens
+                    values: Object.assign({},Config.values,{excluded:false},ruleDialog.overrides)
+                    overrides: true; overrideValues: ruleDialog.overrides
+                    onEdited: function(spec,value) { ruleDialog.update(spec.key,value) }
+                    onOverrideToggled: function(spec,enabled) {
+                        if(enabled) ruleDialog.update(spec.key,spec.key==="excluded" ? false : Config.values[spec.key])
+                        else { var next=Object.assign({},ruleDialog.overrides); delete next[spec.key]; ruleDialog.overrides=next }
                     }
                 }
             }

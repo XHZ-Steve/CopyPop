@@ -1,4 +1,5 @@
 #include "OverlayRenderer.h"
+#include "platform/Windows.h"
 #include <QGuiApplication>
 #include <QQuickView>
 #include <QQuickItem>
@@ -43,6 +44,9 @@ void OverlayRenderer::layout(const QList<QRectF> &rects,bool start) {
         for (const auto &r : rects) { const auto c = r.intersected(monitor); if (!c.isEmpty()) { clipped.append(c); bounds = bounds.united(c); } }
         if (clipped.isEmpty()) continue;
         bounds = bounds.adjusted(-8*scale,-8*scale,8*scale,8*scale).intersected(m_kind.isEmpty()?monitor:work);
+        // Keep the native toast host fixed. Moving its HWND every frame can stall
+        // the Qt animation/render clock; only the toast's QML coordinates follow.
+        if(m_kind=="copied") bounds=QRectF(Win::clientRect(m_owner)).intersected(work).intersected(monitor);
         if (bounds.isEmpty()) continue;
         if (index >= m_views.size()) {
             auto *view = new QQuickView(m_engine,nullptr);
@@ -55,9 +59,10 @@ void OverlayRenderer::layout(const QList<QRectF> &rects,bool start) {
         }
         auto *view = m_views[index++]; if (!view->rootObject()) continue;
         if (!start && !view->isVisible()) continue; // Never replay a completed animation.
-        view->setScreen(screen);
+        if(view->screen()!=screen) view->setScreen(screen);
         const auto origin = screen->geometry().topLeft() + QPoint(qRound((bounds.x()-monitor.x())/scale),qRound((bounds.y()-monitor.y())/scale));
-        view->setGeometry(QRect(origin,QSize(qCeil(bounds.width()/scale),qCeil(bounds.height()/scale))));
+        const QRect geometry(origin,QSize(qCeil(bounds.width()/scale),qCeil(bounds.height()/scale)));
+        if(view->geometry()!=geometry) view->setGeometry(geometry);
         QVariantList local;
         for (const auto &c : clipped) local.append(QVariantMap{{"x",(c.x()-bounds.x())/scale},{"y",(c.y()-bounds.y())/scale},{"w",c.width()/scale},{"h",c.height()/scale}});
         auto *root = view->rootObject();

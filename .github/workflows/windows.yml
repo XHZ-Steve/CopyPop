@@ -1,8 +1,24 @@
 name: Windows build
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: Build configuration
+        required: true
+        default: debug
+        type: choice
+        options: [debug, release]
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      BUILD_PRESET: ${{ github.event.inputs.configuration || 'debug' }}
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v4
       - uses: jurplel/install-qt-action@v4
@@ -12,7 +28,7 @@ jobs:
           cache: true
       - uses: ilammy/msvc-dev-cmd@v1
       - name: Configure
-        run: cmake --preset release -DCMAKE_CXX_COMPILER=cl.exe
+        run: cmake --preset "$env:BUILD_PRESET" "-DCMAKE_CXX_COMPILER=cl.exe"
       - name: Build
-        run: cmake --build --preset release --parallel 4
+        run: cmake --build --preset "$env:BUILD_PRESET" --parallel 4
       # Verification sources are local-only; run the suites on the development desktop.
