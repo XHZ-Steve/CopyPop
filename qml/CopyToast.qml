@@ -4,6 +4,7 @@ Rectangle {
     objectName: "copy-toast"
     property var settings: Config.values
     property bool preview: false
+    property point paperOffset: Qt.point(0,0)
     property bool running: false
     property bool hasPlayed: false
     property real alpha: 1
@@ -43,6 +44,14 @@ Rectangle {
             toast.alpha=toast.alphaAt(toast.elapsedMs)
             if(toast.elapsedMs>=toast.settings.fallbackDuration) toast.running=false
         }
+    }
+    ToastPaper {
+        width: parent.width; height: parent.height; z: -1
+        active: toast.running && toast.settings.fallbackPaperEnabled && !toast.settings.reducedMotion
+        elapsed: toast.elapsedMs
+        duration: Math.min(toast.settings.fallbackPaperDuration || 460,toast.settings.fallbackDuration)
+        ink: toast.settings.fallbackPaperColor || "#78a7ff"
+        lead: toast.paperOffset
     }
     Text {
         id: caption; objectName: "copy-toast-text"

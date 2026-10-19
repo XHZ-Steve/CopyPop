@@ -9,6 +9,7 @@ ColumnLayout {
     required property var theme
     property bool overrides: false
     property var overrideValues: ({})
+    signal collapsing()
     signal edited(var spec, var value)
     signal overrideToggled(var spec, bool enabled)
     spacing: 20
@@ -34,10 +35,13 @@ ColumnLayout {
                     id: rows; width: parent.width; spacing: 0
                     Repeater {
                         model: modelData.rows
-                        delegate: RowLayout {
+                        delegate: Reveal {
                             id: row
                             required property var modelData
-                            visible: !modelData.whenKey || groups.values[modelData.whenKey]===modelData.whenValue
+                            expanded: !modelData.whenKey || groups.values[modelData.whenKey]===modelData.whenValue
+                            onCollapsing: groups.collapsing()
+                            Layout.fillWidth: true
+                            RowLayout {
                             Layout.fillWidth: true; spacing: 0
                             StyledCheckBox {
                                 visible: groups.overrides; Layout.leftMargin: 8
@@ -50,6 +54,7 @@ ColumnLayout {
                                 enabled: !groups.overrides || groups.overrideValues[spec.key]!==undefined
                                 opacity: enabled ? 1 : 0.5
                                 onEdit: function(value) { groups.edited(spec,value) }
+                            }
                             }
                         }
                     }

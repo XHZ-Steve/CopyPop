@@ -78,6 +78,14 @@ static void query(IUIAutomation *automation, SelectionSnapshot &s) {
     Com<IUIAutomationTextPattern> text;
     const auto textResult=element->GetCurrentPatternAs(UIA_TextPatternId,__uuidof(IUIAutomationTextPattern),reinterpret_cast<void **>(text.out()));
     if (SUCCEEDED(textResult) && text) {
+        if(type==UIA_DocumentControlTypeId) {
+            Com<IUIAutomationTextRange> document;
+            if(SUCCEEDED(text->get_DocumentRange(document.out())) && document) {
+                VARIANT value; VariantInit(&value);
+                if(SUCCEEDED(document->GetAttributeValue(40015,&value)) && value.vt==VT_BOOL && value.boolVal==VARIANT_FALSE) s.editable=true;
+                VariantClear(&value);
+            }
+        }
         Com<IUIAutomationTextRangeArray> ranges;
         const auto selectionResult=text->GetSelection(ranges.out());
         if (SUCCEEDED(selectionResult) && ranges) {
@@ -85,9 +93,15 @@ static void query(IUIAutomation *automation, SelectionSnapshot &s) {
             for (int i = 0; i < qMin(n,32); ++i) {
                 Com<IUIAutomationTextRange> range; if (FAILED(ranges->GetElement(i,range.out())) || !range) continue;
                 int difference = 0;
-                if (SUCCEEDED(range->CompareEndpoints(TextPatternRangeEndpoint_Start,range.p,TextPatternRangeEndpoint_End,&difference)) && difference != 0) {
+                if (FAILED(range->CompareEndpoints(TextPatternRangeEndpoint_Start,range.p,TextPatternRangeEndpoint_End,&difference))) continue;
+                if (difference != 0) {
                     s.selection = true; s.rectangles.append(rectangles(range.p));
                     if (s.rectangles.size() >= 128) { s.rectangles = s.rectangles.mid(0,128); break; }
+                } else if(difference==0 && s.editable && s.caret.isEmpty()) {
+                    // TextPattern1 providers often expose only a collapsed selection.
+                    range->ExpandToEnclosingUnit(TextUnit_Character);
+                    const auto caretRects=rectangles(range.p);
+                    if(!caretRects.isEmpty()) s.caret=QRectF(caretRects.first().topLeft(),QSizeF(1,caretRects.first().height()));
                 }
             }
         }

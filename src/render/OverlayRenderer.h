@@ -24,6 +24,7 @@ public:
     void show(HWND owner,const QList<QRectF> &rects,const QVariantMap &settings,const QString &kind = {}) override;
     void move(const QList<QRectF> &rects) override;
     void hide() override;
+    void setPaperOffset(QPointF physicalOffset);
     bool visible() const override;
 signals:
     void followFrame(double seconds);

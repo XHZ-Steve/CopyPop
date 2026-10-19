@@ -7,6 +7,7 @@ Item {
     property string kind: ""
     property real caretAlpha: 0
     property bool following: false
+    property point paperOffset: Qt.point(0,0)
     signal frameTick(real seconds)
     FrameAnimation { running: overlay.following; onTriggered: overlay.frameTick(frameTime) }
     function play() {
@@ -34,6 +35,7 @@ Item {
         id: copiedToast
         property var region: overlay.regions.length ? overlay.regions[0] : ({x:0,y:0,w:0,h:0})
         x: region.x; y: region.y; width: region.w; height: region.h
+        paperOffset: overlay.paperOffset
         settings: Object.assign({},Config.values,overlay.settings)
         onRunningChanged: if(!running) overlay.following=false
     }

@@ -17,6 +17,7 @@ QVariantMap Config::defaults() {
         {"caretEnabled",true},{"caretTypes","text,url,image,files,other"},{"caretSize",22},{"caretOffsetX",12},{"caretOffsetY",18},{"caretDuration",1500},{"caretFade",180},{"caretOpacity",0.85},
         {"fallbackEnabled",true},{"fallbackText","Copied"},{"fallbackTextColor","#f4f7ff"},{"fallbackBackgroundColor","#25334a"},{"fallbackFont","Segoe UI Variable Text"},{"fallbackFontSize",14},{"fallbackBold",false},{"fallbackOpacity",0.95},{"fallbackDuration",900},{"fallbackOffsetX",16},{"fallbackOffsetY",20},{"fallbackRadius",9},
         {"fallbackFadeIn",140},{"fallbackFadeOut",200},{"fallbackFadeCurve","inOutSine"},{"fallbackLift",4},{"fallbackFollowStiffness",700},{"fallbackFollowDamping",1.0},
+        {"fallbackPaperEnabled",false},{"fallbackPaperColor","#78a7ff"},{"fallbackPaperDuration",460},
         {"hybridTracking",true},{"scrollFollow",true},{"predictScroll",false},{"dragFollow",true},{"dynamicZ",true},{"clipRegion",true},
         {"guardFullscreen",true},{"guardGames",true},{"guardPresentation",true},{"diagnostics",false}};
 }
@@ -49,7 +50,7 @@ static bool validValue(const QString &key, const QVariant &value) {
         {"effectRadius",{0,16}},{"effectBorder",{0,4}},{"shimmerWidth",{10,100}},{"shimmerAngle",{-45,45}},{"pulseCycles",{1,6}},{"dissolveDensity",{4,40}},{"dissolveTravel",{0,100}},
         {"caretSize",{14,48}},{"caretOffsetX",{-80,80}},{"caretOffsetY",{-80,80}},{"caretDuration",{300,4000}},{"caretFade",{50,600}},{"caretOpacity",{0.1,1}},
         {"fallbackFontSize",{10,36}},{"fallbackOpacity",{0.1,1}},{"fallbackDuration",{300,4000}},{"fallbackOffsetX",{-120,120}},{"fallbackOffsetY",{-120,120}},{"fallbackRadius",{0,20}},
-        {"fallbackFadeIn",{0,800}},{"fallbackFadeOut",{0,800}},{"fallbackLift",{0,16}},{"fallbackFollowStiffness",{80,2000}},{"fallbackFollowDamping",{0.4,2}}};
+        {"fallbackPaperDuration",{150,2000}},{"fallbackFadeIn",{0,800}},{"fallbackFadeOut",{0,800}},{"fallbackLift",{0,16}},{"fallbackFollowStiffness",{80,2000}},{"fallbackFollowDamping",{0.4,2}}};
     if (bounds.contains(key)) {
         bool ok = false; const double v = value.toDouble(&ok); const auto b = bounds[key];
         return ok && std::isfinite(v) && v >= b.first && v <= b.second;

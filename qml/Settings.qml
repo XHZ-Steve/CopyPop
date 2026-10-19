@@ -58,6 +58,9 @@ ApplicationWindow {
             {key:"fallbackFadeOut",label:"淡出时长",note:"淡入与淡出超过总时长时，按比例缩短。",type:"number",min:0,max:800,step:10,unit:"ms"},
             {key:"fallbackFadeCurve",label:"淡入淡出曲线",type:"choice",options:[{label:"正弦缓入缓出",value:"inOutSine"},{label:"柔和减速 / 加速",value:"outCubic"},{label:"线性",value:"linear"}]},
             {key:"fallbackLift",label:"淡入淡出位移",note:"遵循系统减少动画偏好；关闭动画时仅保留透明度变化。",type:"number",min:0,max:16,step:1,unit:"px"},
+            {section:"彩纸特效",key:"fallbackPaperEnabled",label:"从中心展开彩纸",note:"快速拉伸展开后缓动收回；彩纸比文字更紧地跟随光标。",type:"bool"},
+            {whenKey:"fallbackPaperEnabled",whenValue:true,key:"fallbackPaperColor",label:"彩纸颜色",type:"color"},
+            {whenKey:"fallbackPaperEnabled",whenValue:true,key:"fallbackPaperDuration",label:"彩纸动画时长",note:"包含展开与收回，最长不超过提示的显示时长。",type:"number",min:150,max:2000,step:10,unit:"ms"},
             {section:"光标跟随",key:"fallbackFollowStiffness",label:"跟随力度",note:"弹簧加速度系数，越高越快接近光标。按实际动画帧间隔计算。",type:"number",min:80,max:2000,step:20},
             {key:"fallbackFollowDamping",label:"跟随阻尼",note:"1 为临界阻尼；小于 1 有回弹，大于 1 更沉稳。",type:"number",min:0.4,max:2,step:0.05,decimals:2}
         ],
@@ -154,6 +157,27 @@ ApplicationWindow {
                 Layout.fillWidth: true; Layout.fillHeight: true; clip: true
                 contentWidth: availableWidth
                 ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                function maximumY() { return Math.max(0,contentItem.contentHeight-contentItem.height) }
+                function prepareCollapse() { wheelMotion.stop(); contentItem.cancelFlick() }
+                Connections {
+                    target: scroller.contentItem
+                    function onContentHeightChanged() {
+                        // Animated content shrink moves the viewport with its bottom edge.
+                        var bottom=scroller.maximumY()
+                        if(scroller.contentItem.contentY>bottom) scroller.contentItem.contentY=bottom
+                    }
+                }
+                WheelHandler {
+                    target: null; acceptedModifiers: Qt.NoModifier
+                    onWheel: function(event) {
+                        scroller.contentItem.cancelFlick()
+                        var delta=event.pixelDelta.y!==0 ? event.pixelDelta.y : event.angleDelta.y
+                        var previous=wheelMotion.running ? wheelMotion.to : scroller.contentItem.contentY
+                        wheelMotion.stop(); wheelMotion.to=Math.max(0,Math.min(scroller.maximumY(),previous-delta))
+                        wheelMotion.start(); event.accepted=true
+                    }
+                }
+                NumberAnimation { id: wheelMotion; target: scroller.contentItem; property: "contentY"; duration: App.reducedMotion ? 0 : 100; easing.type: Easing.OutCubic }
                 ColumnLayout {
                     width: scroller.availableWidth; spacing: 18
                     Preview { visible: settingsWindow.page === 1; Layout.fillWidth: true; theme: tokens }
@@ -170,6 +194,7 @@ ApplicationWindow {
                     SettingsGroups {
                         Layout.fillWidth: true; visible: specifications.length>0
                         specifications: settingsWindow.specs[settingsWindow.page]; theme: tokens
+                        onCollapsing: scroller.prepareCollapse()
                         onEdited: function(spec,value) { if(Config.set(spec.key,value) && spec.key==="color") Config.set("preset","custom") }
                     }
                     StyledCheckBox {
@@ -177,10 +202,16 @@ ApplicationWindow {
                         text: "展开复制特效调试参数"; checked: settingsWindow.showEffectTuning
                         onToggled: settingsWindow.showEffectTuning=checked
                     }
-                    SettingsGroups {
-                        Layout.fillWidth: true; visible: settingsWindow.page===1 && settingsWindow.showEffectTuning
-                        specifications: settingsWindow.effectTuningSpecs; theme: tokens
-                        onEdited: function(spec,value) { Config.set(spec.key,value) }
+                    Reveal {
+                        objectName: "effect-tuning-reveal"
+                        Layout.fillWidth: true; expanded: settingsWindow.page===1 && settingsWindow.showEffectTuning
+                        animate: settingsWindow.page===1 && !App.reducedMotion
+                        onCollapsing: scroller.prepareCollapse()
+                        SettingsGroups {
+                            Layout.fillWidth: true
+                            specifications: settingsWindow.effectTuningSpecs; theme: tokens
+                            onEdited: function(spec,value) { Config.set(spec.key,value) }
+                        }
                     }
                     Rectangle {
                         visible: settingsWindow.page === 0

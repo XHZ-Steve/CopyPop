@@ -9,7 +9,7 @@ class MotionFollower : public QObject {
     Q_OBJECT
     Q_PROPERTY(QPointF position READ position NOTIFY changed)
     Q_PROPERTY(QPointF velocity READ velocity NOTIFY changed)
-    Q_PROPERTY(QPointF target MEMBER target)
+    Q_PROPERTY(QPointF target MEMBER target NOTIFY changed)
     Q_PROPERTY(double stiffness MEMBER stiffness)
     Q_PROPERTY(double damping MEMBER damping)
 public:

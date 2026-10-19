@@ -68,6 +68,7 @@ private:
     void tick();
     void followToast(double seconds);
     void query(QueryReason reason);
+    void scheduleFocus();
     void trayUpdate();
     void notify(const QString &message);
     void log(const QString &event);
@@ -82,7 +83,7 @@ private:
     QSystemTrayIcon m_tray;
     std::unique_ptr<QMenu> m_menu;
     QPointer<QWindow> m_settings, m_welcome;
-    QTimer m_guardTimer, m_attachedTimer, m_resumeTimer, m_copyDeadline, m_snapshotDebounce;
+    QTimer m_guardTimer, m_attachedTimer, m_resumeTimer, m_copyDeadline, m_snapshotDebounce, m_focusProbe;
     QElapsedTimer m_animationClock, m_followClock, m_uptime;
     HWND m_foreground = nullptr, m_owner = nullptr;
     QString m_path, m_recentPath, m_status, m_kind = "other", m_notice;
@@ -95,6 +96,7 @@ private:
     bool m_guarded = false, m_paused = false, m_caret = false, m_fallback = false, m_copyPending = false, m_copyHint = false, m_testing = false;
     DWORD m_sequence = 0;
     qint64 m_copyAt = 0, m_lastGeometry = 0;
-    int m_effectDuration = 700;
+    int m_effectDuration = 700, m_focusAttempts = 0;
+    qint64 m_lastInputAt = 0;
     quint64 m_updates = 0, m_animations = 0, m_timeouts = 0;
 };

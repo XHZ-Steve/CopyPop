@@ -40,6 +40,7 @@ signals:
     void focusChanged();
     void geometryChanged();
     void inputChanged();
+    void caretChanged();
     void selectionReady();
     void selectionChanged();
     void displaysChanged();

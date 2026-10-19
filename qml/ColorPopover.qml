@@ -72,7 +72,7 @@ Popup {
         RowLayout {
             Layout.fillWidth: true; spacing: 8
             Slider {
-                id: hueBar; Layout.fillWidth: true; Layout.preferredHeight: 24
+                id: hueBar; Layout.fillWidth: true; Layout.preferredHeight: 36
                 from: 0; to: 360; value: picker.hue; onMoved: picker.hue=value; Accessible.name: "色相"
                 background: Rectangle {
                     x: hueBar.leftPadding; y: (hueBar.height-height)/2; width: hueBar.availableWidth; height: 9; radius: 4
@@ -81,12 +81,12 @@ Popup {
                 handle: Rectangle { x: hueBar.leftPadding+hueBar.visualPosition*(hueBar.availableWidth-width); y: (hueBar.height-height)/2; width: 9; height: 17; radius: 4; color: Qt.hsva(picker.hue/360,1,1,1); border.width: 2; border.color: "white" }
             }
             NumberEntry { objectName: "popover-hue-number"; Layout.preferredWidth: 54; from: 0; to: 360; decimals: 0; value: picker.hue; label: "色相"; onEdited: function(value) { picker.hue=value } }
-            Label { text: "°"; color: picker.theme.muted; font.pixelSize: 11 }
+            Label { Layout.preferredWidth: 14; text: "°"; color: picker.theme.muted; font.pixelSize: 11 }
         }
         RowLayout {
             Layout.fillWidth: true; spacing: 8
             Slider {
-                id: opacitySlider; Layout.fillWidth: true; Layout.preferredHeight: 24
+                id: opacitySlider; Layout.fillWidth: true; Layout.preferredHeight: 36
                 from: 0; to: 1; value: picker.alpha; onMoved: picker.alpha=value; Accessible.name: "透明度"
                 background: Rectangle {
                     x: opacitySlider.leftPadding; y: (opacitySlider.height-height)/2; width: opacitySlider.availableWidth; height: 9; radius: 4; color: "#8993a1"; clip: true
@@ -96,7 +96,7 @@ Popup {
                 handle: Rectangle { x: opacitySlider.leftPadding+opacitySlider.visualPosition*(opacitySlider.availableWidth-width); y: (opacitySlider.height-height)/2; width: 9; height: 17; radius: 4; color: picker.selectedColor; border.width: 2; border.color: "white" }
             }
             NumberEntry { objectName: "popover-alpha-number"; Layout.preferredWidth: 54; from: 0; to: 100; decimals: 0; value: picker.alpha*100; label: "透明度"; onEdited: function(value) { picker.alpha=value/100 } }
-            Label { text: "%"; color: picker.theme.muted; font.pixelSize: 11 }
+            Label { Layout.preferredWidth: 14; text: "%"; color: picker.theme.muted; font.pixelSize: 11 }
         }
         RowLayout {
             Layout.fillWidth: true; spacing: 9

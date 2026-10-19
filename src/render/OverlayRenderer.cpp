@@ -18,9 +18,12 @@ void OverlayRenderer::hide() {
     }
 }
 void OverlayRenderer::show(HWND owner,const QList<QRectF> &rects,const QVariantMap &settings,const QString &kind) {
-    hide(); m_owner = owner; m_settings = settings; m_kind = kind; layout(rects,true);
+    hide(); setPaperOffset({}); m_owner = owner; m_settings = settings; m_kind = kind; layout(rects,true);
 }
 void OverlayRenderer::move(const QList<QRectF> &rects) { if (visible()) layout(rects,false); }
+void OverlayRenderer::setPaperOffset(QPointF offset) {
+    for(auto *view:m_views) if(view->rootObject()) view->rootObject()->setProperty("paperOffset",offset/view->devicePixelRatio());
+}
 void OverlayRenderer::frame(double seconds) {
     if(m_kind=="copied" && !m_views.isEmpty() && sender()==m_views.first()->rootObject() && visible()) emit followFrame(seconds);
 }

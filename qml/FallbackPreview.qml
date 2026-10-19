@@ -41,6 +41,7 @@ Rectangle {
                 x: follower.position.x; y: follower.position.y
                 width: Math.min(naturalWidth,field.width); height: naturalHeight
                 preview: true
+                paperOffset: Qt.point((follower.target.x-follower.position.x)*0.85,(follower.target.y-follower.position.y)*0.85)
                 settings: Object.assign({},Config.values,{reducedMotion:App.reducedMotion})
             }
             onWidthChanged: centerToast()

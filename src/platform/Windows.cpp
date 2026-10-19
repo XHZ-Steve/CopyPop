@@ -133,6 +133,7 @@ LRESULT CALLBACK WindowsEvents::windowProc(HWND w,UINT msg,WPARAM wp,LPARAM lp) 
         case WM_APP+2: emit self->focusChanged(); return 0;
         case WM_APP+3: emit self->geometryChanged(); return 0;
         case WM_APP+4: emit self->inputChanged(); return 0;
+        case WM_APP+5: emit self->caretChanged(); return 0;
     }
     return DefWindowProcW(w,msg,wp,lp);
 }
@@ -178,6 +179,7 @@ void CALLBACK WindowsEvents::eventProc(HWINEVENTHOOK,DWORD event,HWND w,LONG obj
     if (!w || GetAncestor(w,GA_ROOT) != GetForegroundWindow()) return;
     if (event == EVENT_OBJECT_FOCUS) PostMessageW(s_window,WM_APP+2,0,0);
     else if (event >= EVENT_OBJECT_SELECTION && event <= EVENT_OBJECT_SELECTIONWITHIN) PostMessageW(s_window,SelectionChanged,0,0);
-    else if (event == EVENT_OBJECT_VALUECHANGE || (event == EVENT_OBJECT_LOCATIONCHANGE && object == OBJID_CARET)) PostMessageW(s_window,WM_APP+4,0,0);
+    else if (event == EVENT_OBJECT_VALUECHANGE) PostMessageW(s_window,WM_APP+4,0,0);
+    else if (event == EVENT_OBJECT_LOCATIONCHANGE && object == OBJID_CARET) PostMessageW(s_window,WM_APP+5,0,0);
     else PostMessageW(s_window,WM_APP+3,0,0);
 }
