@@ -21,6 +21,7 @@ Item {
     signal frameTick(real seconds)
     FrameAnimation { running: overlay.following; onTriggered: overlay.frameTick(frameTime) }
     function play() {
+        cancel()
         if(kind==="copied") { copiedToast.play(); following=true }
         else if(kind.length) { caretStartedAt=App.monotonicTime(); caretAlpha=caretAlphaAt(0); caretRunning=true }
         else layer.start()

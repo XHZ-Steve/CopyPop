@@ -72,10 +72,10 @@ App::App(Config *config,QQmlEngine *engine,bool testing,QObject *parent)
     connect(&m_events,&WindowsEvents::selectionReady,&m_tracker,&SelectionTracker::receive);
     connect(&m_events,&WindowsEvents::caretChanged,this,[this]{ if(m_caret) tick(); });
     connect(&m_events,&WindowsEvents::inputChanged,this,[this]{ m_lastInputAt=QDateTime::currentMSecsSinceEpoch(); m_focusProbe.stop(); if (m_caret) cancel(); if (allowed() && !m_snapshotDebounce.isActive()) m_snapshotDebounce.start(); });
-    connect(&m_events,&WindowsEvents::geometryChanged,this,[this]{ if (m_renderer.visible()) { tick(); if (allowed() && !m_caret && !m_fallback && m_renderer.visible()) query(QueryReason::Follow); } });
+    connect(&m_events,&WindowsEvents::geometryChanged,this,[this]{ if (m_renderer.visible()) { tick(); if (allowed() && !m_copyPending && !m_caret && !m_fallback && m_renderer.visible()) query(QueryReason::Follow); } });
     connect(&m_events,&WindowsEvents::displaysChanged,this,[this]{ cancel(); m_tracker.invalidate(); m_snapshot = {}; });
     connect(&m_tracker,&SelectionTracker::ready,this,&App::selection);
-    connect(&m_tracker,&SelectionTracker::budgetExceeded,this,[this]{ ++m_timeouts; if (m_renderer.visible() && !m_caret && !m_fallback) { cancel(); showCopyToast(); } else if (m_copyPending) copyFallback(); emit statusChanged(); });
+    connect(&m_tracker,&SelectionTracker::budgetExceeded,this,[this]{ ++m_timeouts; if (m_copyPending) copyFallback(); else if (m_renderer.visible() && !m_caret && !m_fallback) { cancel(); showCopyToast(); } emit statusChanged(); });
     connect(config,&Config::changed,this,[this] {
         cancel(); m_tracker.invalidate(); m_snapshot = {};
         if (!m_testing && !m_config->value("firstRun").toBool() && Win::startupEnabled() != m_config->value("startup").toBool() && !Win::setStartup(m_config->value("startup").toBool())) notify("无法更新开机启动，请检查当前用户注册表权限。" );
@@ -178,12 +178,13 @@ void App::trayUpdate() {
 void App::clipboard() {
     const auto sequence = GetClipboardSequenceNumber();
     if (sequence == m_sequence) return;
-    m_focusProbe.stop(); cancel(); m_tracker.invalidate(); m_copyPending = false; m_copyHint = Win::probableCopy(); m_copyAt = QDateTime::currentMSecsSinceEpoch();
+    const bool keepHost=!m_caret && m_renderer.visible() && m_owner==GetForegroundWindow() && Win::windowRect(m_owner)==m_ownerRect && allowed();
+    m_focusProbe.stop(); cancel(keepHost); m_tracker.invalidate(); m_copyPending = false; m_copyHint = Win::probableCopy(); m_copyAt = QDateTime::currentMSecsSinceEpoch();
     m_kind=Win::clipboardFormatKind(); if(m_kind=="text" || m_kind=="files") m_classifier.request(sequence);
     const auto owner = GetAncestor(GetClipboardOwner(),GA_ROOT);
     m_sequence = sequence; ++m_updates; refresh(); emit statusChanged(); log("clipboard-update");
     DWORD pid = 0; GetWindowThreadProcessId(m_foreground,&pid);
-    if (!allowed() || pid == GetCurrentProcessId() || (!m_effective.value("effectsEnabled").toBool() && !m_effective.value("fallbackEnabled").toBool())) return;
+    if (!allowed() || pid == GetCurrentProcessId() || (!m_effective.value("effectsEnabled").toBool() && !m_effective.value("fallbackEnabled").toBool())) { cancel(); return; }
     beginCopy(owner,m_copyHint);
 }
 void App::beginCopy(HWND owner,bool inputHint) {
@@ -192,7 +193,7 @@ void App::beginCopy(HWND owner,bool inputHint) {
     const auto age=m_copyAt-m_snapshot.requestedAt;
     const bool recentSelection=m_snapshot.window==m_foreground && m_snapshot.selection && !m_snapshot.protectedControl && age>=0 && age<900;
     m_copyHint=inputHint || (owner==m_foreground && recentSelection);
-    if (!m_copyHint && owner != m_foreground) return;
+    if (!m_copyHint && owner != m_foreground) { cancel(); return; }
     if (recentSelection) log("copy-selection-evidence");
     m_copyPending = true; m_copyDeadline.start(); query(QueryReason::Copy);
 }
@@ -211,8 +212,8 @@ void App::selection(const SelectionSnapshot &s) {
     if(s.reason==QueryReason::Focus && !m_renderer.visible() && s.requestedAt>=m_lastInputAt && s.editable && s.caret.isEmpty() && m_focusAttempts<8) m_focusProbe.start();
     if (m_copyPending) {
         m_copyPending = false; m_copyDeadline.stop();
-        if (QDateTime::currentMSecsSinceEpoch()-m_copyAt > 240) return;
-        if (!m_copyHint && !s.selection) return;
+        if (QDateTime::currentMSecsSinceEpoch()-m_copyAt > 240) { cancel(); return; }
+        if (!m_copyHint && !s.selection) { cancel(); return; }
         if (s.level=="L3" && !s.rectangles.isEmpty() && m_effective.value("effectsEnabled").toBool()) animate(s.rectangles);
         else showCopyToast();
     } else if (s.reason == QueryReason::Focus && (!m_renderer.visible() || m_caret) && s.requestedAt>=m_lastInputAt && s.editable && !s.caret.isEmpty() && m_effective.value("caretEnabled").toBool() && m_config->value("caretTypes").toString().split(',').contains(m_kind)) {
@@ -236,7 +237,8 @@ void App::selection(const SelectionSnapshot &s) {
 }
 void App::copyFallback() {
     const bool pending = m_copyPending; m_copyPending = false; m_copyDeadline.stop();
-    if (!allowed() || !m_copyHint || QDateTime::currentMSecsSinceEpoch()-m_copyAt > 260 || (!pending && m_renderer.visible())) return;
+    if (!allowed() || !m_copyHint || QDateTime::currentMSecsSinceEpoch()-m_copyAt > 260) { cancel(); return; }
+    if (!pending && m_renderer.visible()) return;
     showCopyToast();
 }
 QRectF App::toastRect() const {
@@ -250,8 +252,8 @@ QRectF App::toastRect() const {
     return Win::copyToastRect(QPoint(p.x,p.y),work.intersected(Win::clientRect(m_foreground)),m_effective,scale);
 }
 void App::showCopyToast() {
-    if(!allowed() || !m_effective.value("fallbackEnabled").toBool()) return;
-    const auto rect=toastRect(); if(!rect.isEmpty()) animate({rect},false,true);
+    if(!allowed() || !m_effective.value("fallbackEnabled").toBool()) { cancel(); return; }
+    const auto rect=toastRect(); if(!rect.isEmpty()) animate({rect},false,true); else cancel();
 }
 bool App::reducedMotion() const {return m_config->value("respectReducedMotion").toBool() && Win::reducedMotion();}
 QVariantMap App::effectMetrics(const QVariantList &regions,const QVariantMap &settings) const {
@@ -288,9 +290,13 @@ void App::animate(const QList<QRectF> &rects,bool caret,bool fallback) {
     m_renderer.show(m_owner,rects,settings,fallback?QString("copied"):caret?m_kind:QString());
     m_attachedTimer.start(); ++m_animations;
 }
-void App::cancel() { m_renderer.hide(); m_attachedTimer.stop(); m_rects.clear(); m_caret = false; m_fallback=false; m_copyPending = false; m_copyDeadline.stop(); }
+void App::cancel(bool keepHost) { if(keepHost) m_renderer.suspend(); else m_renderer.hide(); m_attachedTimer.stop(); m_rects.clear(); m_caret = false; m_fallback=false; m_copyPending = false; m_copyDeadline.stop(); }
 void App::tick() {
     if (!m_renderer.visible() || !allowed() || GetForegroundWindow() != m_owner || !IsWindowVisible(m_owner) || IsIconic(m_owner) || (Win::fullscreen(m_owner) && m_config->value("guardFullscreen").toBool())) { cancel(); return; }
+    if(m_copyPending) {
+        if(Win::windowRect(m_owner)!=m_ownerRect) { cancel(); m_tracker.invalidate(); }
+        return; // The bounded copy query owns the retained host until it completes.
+    }
     const auto maxDuration = m_fallback?m_effective.value("fallbackDuration").toInt():m_caret?m_config->value("caretDuration").toInt():m_effectDuration;
     if (m_animationClock.elapsed() > maxDuration+60) { cancel(); return; }
     if (m_caret) {

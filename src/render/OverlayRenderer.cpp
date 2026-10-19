@@ -18,7 +18,12 @@ void OverlayRenderer::hide() {
     }
 }
 void OverlayRenderer::show(HWND owner,const QList<QRectF> &rects,const QVariantMap &settings,const QString &kind) {
-    hide(); setPaperOffset({}); m_owner = owner; m_settings = settings; m_kind = kind; layout(rects,true);
+    if(owner!=m_owner) hide();
+    setPaperOffset({}); m_owner = owner; m_settings = settings; m_kind = kind; layout(rects,true);
+}
+void OverlayRenderer::suspend() {
+    // Stop the old effect while a repeated copy is queried, retaining its native host.
+    for(auto *view:m_views) if(view->isVisible() && view->rootObject()) QMetaObject::invokeMethod(view->rootObject(),"cancel");
 }
 void OverlayRenderer::move(const QList<QRectF> &rects) { if (visible()) layout(rects,false); }
 void OverlayRenderer::updateKind(const QString &kind) {
@@ -72,18 +77,23 @@ void OverlayRenderer::layout(const QList<QRectF> &rects,bool start) {
         QVariantList local;
         for (const auto &c : clipped) local.append(QVariantMap{{"x",(c.x()-bounds.x())/scale},{"y",(c.y()-bounds.y())/scale},{"w",c.width()/scale},{"h",c.height()/scale}});
         auto *root = view->rootObject();
-        root->setProperty("regions",local);
+        if(root->property("regions").toList()!=local) root->setProperty("regions",local);
         if (start) {
-            root->setProperty("settings",m_settings);
-            root->setProperty("kind",m_kind);
+            const bool zChanged=root->property("settings").toMap().value("dynamicZ",true)!=m_settings.value("dynamicZ",true);
+            if(root->property("settings").toMap()!=m_settings) root->setProperty("settings",m_settings);
+            if(root->property("kind").toString()!=m_kind) root->setProperty("kind",m_kind);
             auto hwnd = reinterpret_cast<HWND>(view->winId());
-            auto ex = GetWindowLongPtrW(hwnd,GWL_EXSTYLE);
-            SetWindowLongPtrW(hwnd,GWL_EXSTYLE,ex|WS_EX_TRANSPARENT|WS_EX_NOACTIVATE|WS_EX_TOOLWINDOW);
-            view->show();
+            const bool needsShow=!view->isVisible();
+            if(needsShow) {
+                const auto ex = GetWindowLongPtrW(hwnd,GWL_EXSTYLE);
+                SetWindowLongPtrW(hwnd,GWL_EXSTYLE,ex|WS_EX_TRANSPARENT|WS_EX_NOACTIVATE|WS_EX_TOOLWINDOW);
+                view->show();
+            }
             // Qt establishes native styles during show(); attach the owner afterwards.
-            SetWindowLongPtrW(hwnd,GWLP_HWNDPARENT,reinterpret_cast<LONG_PTR>(m_owner));
+            const bool ownerChanged=GetWindow(hwnd,GW_OWNER)!=m_owner;
+            if(ownerChanged) SetWindowLongPtrW(hwnd,GWLP_HWNDPARENT,reinterpret_cast<LONG_PTR>(m_owner));
             // Owned, non-topmost windows only. Revalidate foreground before every movement.
-            SetWindowPos(hwnd,m_settings.value("dynamicZ",true).toBool()?HWND_TOP:nullptr,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE|(m_settings.value("dynamicZ",true).toBool()?0:SWP_NOZORDER));
+            if(needsShow || ownerChanged || zChanged) SetWindowPos(hwnd,m_settings.value("dynamicZ",true).toBool()?HWND_TOP:nullptr,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE|(m_settings.value("dynamicZ",true).toBool()?0:SWP_NOZORDER));
             QMetaObject::invokeMethod(root,"play");
         }
     }

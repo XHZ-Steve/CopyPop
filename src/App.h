@@ -67,7 +67,7 @@ private:
     void showCopyToast();
     QRectF toastRect() const;
     void animate(const QList<QRectF> &rects,bool caret = false,bool fallback = false);
-    void cancel();
+    void cancel(bool keepHost = false);
     void tick();
     void followToast(double seconds);
     void query(QueryReason reason);

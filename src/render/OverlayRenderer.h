@@ -24,6 +24,7 @@ public:
     void show(HWND owner,const QList<QRectF> &rects,const QVariantMap &settings,const QString &kind = {}) override;
     void move(const QList<QRectF> &rects) override;
     void hide() override;
+    void suspend();
     void setPaperOffset(QPointF physicalOffset);
     void updateKind(const QString &kind);
     bool visible() const override;
