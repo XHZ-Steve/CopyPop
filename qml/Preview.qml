@@ -30,6 +30,7 @@ Rectangle {
                 }
                 onSelectedTextChanged: if(selectedText.length === 0) actual.cancel()
             }
+            DebugOverlay { anchors.fill: parent; showHud: false; kind: ""; regions: actual.regions }
             EffectLayer { id: actual; anchors.fill: parent; regions: [{x:0,y:0,w:Math.min(sampleArea.width,310),h:28},{x:0,y:30,w:Math.min(sampleArea.width,275),h:28}]; settings: Config.values }
         }
         RowLayout {

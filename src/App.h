@@ -14,6 +14,7 @@ class QMenu;
 
 class App : public QObject {
     Q_OBJECT
+    Q_PROPERTY(QVariantMap performanceStats READ performanceStats NOTIFY performanceChanged)
     Q_PROPERTY(QString status READ status NOTIFY statusChanged)
     Q_PROPERTY(QString clipboardType READ clipboardType NOTIFY statusChanged)
     Q_PROPERTY(QString lastApplication READ lastApplication NOTIFY statusChanged)
@@ -27,6 +28,7 @@ public:
     QString clipboardType() const { return m_kind; }
     QString lastApplication() const { return m_recentPath; }
     QString diagnostics() const;
+    QVariantMap performanceStats() const;
     QString notice() const { return m_notice; }
     bool reducedMotion() const;
     Q_INVOKABLE qint64 monotonicTime() const { return m_uptime.elapsed(); }
@@ -52,6 +54,7 @@ public:
     Q_INVOKABLE bool nativeSelfTest();
 signals:
     void statusChanged();
+    void performanceChanged();
     void noticeChanged();
 private:
     friend class UiTests;
@@ -83,7 +86,7 @@ private:
     QSystemTrayIcon m_tray;
     std::unique_ptr<QMenu> m_menu;
     QPointer<QWindow> m_settings, m_welcome;
-    QTimer m_guardTimer, m_attachedTimer, m_resumeTimer, m_copyDeadline, m_snapshotDebounce, m_focusProbe;
+    QTimer m_guardTimer, m_attachedTimer, m_resumeTimer, m_copyDeadline, m_snapshotDebounce, m_focusProbe, m_performanceTimer;
     QElapsedTimer m_animationClock, m_followClock, m_uptime;
     HWND m_foreground = nullptr, m_owner = nullptr;
     QString m_path, m_recentPath, m_status, m_kind = "other", m_notice;
@@ -98,5 +101,8 @@ private:
     qint64 m_copyAt = 0, m_lastGeometry = 0;
     int m_effectDuration = 700, m_focusAttempts = 0;
     qint64 m_lastInputAt = 0;
+    quint64 m_lastCpuTicks = 0;
+    qint64 m_lastCpuAt = 0;
+    double m_cpuPercent = 0, m_memoryMb = 0, m_privateMb = 0;
     quint64 m_updates = 0, m_animations = 0, m_timeouts = 0;
 };

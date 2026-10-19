@@ -1,5 +1,5 @@
 import QtQuick
-Rectangle {
+Item {
     id: toast
     objectName: "copy-toast"
     property var settings: Config.values
@@ -16,8 +16,6 @@ Rectangle {
     readonly property int naturalWidth: Math.ceil(caption.implicitWidth)+24
     readonly property int naturalHeight: Math.ceil(caption.implicitHeight)+18
     implicitWidth: naturalWidth; implicitHeight: naturalHeight
-    radius: settings.fallbackRadius
-    color: settings.fallbackBackgroundColor
     visible: preview || running
     opacity: settings.fallbackOpacity*(hasPlayed ? alpha : 1)
     transform: Translate { y: toast.running && !toast.settings.reducedMotion ? (1-toast.alpha)*toast.settings.fallbackLift : 0 }
@@ -45,12 +43,15 @@ Rectangle {
             if(toast.elapsedMs>=toast.settings.fallbackDuration) toast.running=false
         }
     }
+    Rectangle { anchors.fill: parent; radius: toast.settings.fallbackRadius; color: toast.settings.fallbackBackgroundColor }
     ToastPaper {
         width: parent.width; height: parent.height; z: -1
         active: toast.running && toast.settings.fallbackPaperEnabled && !toast.settings.reducedMotion
         elapsed: toast.elapsedMs
         duration: Math.min(toast.settings.fallbackPaperDuration || 460,toast.settings.fallbackDuration)
         ink: toast.settings.fallbackPaperColor || "#78a7ff"
+        multicolor: toast.settings.fallbackPaperMulticolor || false
+        inspect: toast.settings.debugPaperGuides || false
         lead: toast.paperOffset
     }
     Text {

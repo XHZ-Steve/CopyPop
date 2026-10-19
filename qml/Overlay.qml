@@ -6,16 +6,26 @@ Item {
     property var settings: Config.values
     property string kind: ""
     property real caretAlpha: 0
+    property bool caretRunning: false
+    property real caretStartedAt: 0
+    readonly property real caretFadeScale: Math.min(1,settings.caretDuration/Math.max(1,settings.caretFadeIn+settings.caretFadeOut))
+    function caretAlphaAt(time) {
+        if(time>=settings.caretDuration) return 0
+        var incoming=settings.caretFadeIn*caretFadeScale, outgoing=settings.caretFadeOut*caretFadeScale
+        if(incoming>0 && time<incoming) return time/incoming
+        if(outgoing>0 && time>settings.caretDuration-outgoing) return (settings.caretDuration-time)/outgoing
+        return 1
+    }
     property bool following: false
     property point paperOffset: Qt.point(0,0)
     signal frameTick(real seconds)
     FrameAnimation { running: overlay.following; onTriggered: overlay.frameTick(frameTime) }
     function play() {
         if(kind==="copied") { copiedToast.play(); following=true }
-        else if(kind.length) caretMotion.restart()
+        else if(kind.length) { caretStartedAt=App.monotonicTime(); caretAlpha=caretAlphaAt(0); caretRunning=true }
         else layer.start()
     }
-    function cancel() { following=false; layer.cancel(); caretMotion.stop(); caretAlpha = 0; copiedToast.cancel() }
+    function cancel() { following=false; layer.cancel(); caretRunning=false; caretAlpha = 0; copiedToast.cancel() }
     EffectLayer { id: layer; anchors.fill: parent; regions: overlay.regions; settings: overlay.settings }
     Repeater {
         model: overlay.kind.length && overlay.kind!=="copied" ? overlay.regions : []
@@ -39,10 +49,13 @@ Item {
         settings: Object.assign({},Config.values,overlay.settings)
         onRunningChanged: if(!running) overlay.following=false
     }
-    SequentialAnimation {
-        id: caretMotion
-        NumberAnimation { target: overlay; property: "caretAlpha"; from: 0; to: 1; duration: Math.min(overlay.settings.caretFade || 180,(overlay.settings.caretDuration || 1500)/3) }
-        PauseAnimation { duration: Math.max(0,(overlay.settings.caretDuration || 1500)-2*(overlay.settings.caretFade || 180)) }
-        NumberAnimation { target: overlay; property: "caretAlpha"; from: 1; to: 0; duration: Math.min(overlay.settings.caretFade || 180,(overlay.settings.caretDuration || 1500)/3) }
+    FrameAnimation {
+        running: overlay.caretRunning
+        onTriggered: {
+            var time=App.monotonicTime()-overlay.caretStartedAt
+            overlay.caretAlpha=overlay.caretAlphaAt(time)
+            if(time>=overlay.settings.caretDuration) overlay.caretRunning=false
+        }
     }
+    DebugOverlay { anchors.fill: parent; regions: overlay.regions; kind: overlay.kind; settings: overlay.settings }
 }

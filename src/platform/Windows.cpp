@@ -58,22 +58,43 @@ bool Win::setStartup(bool enabled) {
     s.sync(); return s.status() == QSettings::NoError;
 }
 QString Win::classifyFormats(bool files,bool image,bool text,QStringView snippet,bool complete) {
-    if(files) return "files";
     if(image) return "image";
+    if(files) return "files";
     if(!text) return "other";
     const auto candidate=snippet.trimmed(); const QUrl url(candidate.toString(),QUrl::StrictMode);
     const bool link=complete && !candidate.contains(QChar(' ')) && !candidate.contains(QChar('\n')) && url.isValid() && !url.host().isEmpty() && (url.scheme()=="https" || url.scheme()=="http" || url.scheme()=="ftp");
     return link?"url":"text";
 }
+QString Win::classifyFilePaths(const QStringList &paths) {
+    static const QStringList images{"jpg","jpeg","png","gif","bmp","webp","tif","tiff","ico","svg","avif","heic","heif"};
+    if(paths.isEmpty()) return "files";
+    for(const auto &path:paths) if(!images.contains(QFileInfo(path).suffix().toLower())) return "files";
+    return "image";
+}
 QString Win::clipboardFormatKind() {
     return classifyFormats(IsClipboardFormatAvailable(CF_HDROP),
-        IsClipboardFormatAvailable(CF_DIBV5) || IsClipboardFormatAvailable(CF_DIB) || IsClipboardFormatAvailable(CF_BITMAP) || IsClipboardFormatAvailable(RegisterClipboardFormatW(L"PNG")),
+        IsClipboardFormatAvailable(CF_DIBV5) || IsClipboardFormatAvailable(CF_DIB) || IsClipboardFormatAvailable(CF_BITMAP) || IsClipboardFormatAvailable(RegisterClipboardFormatW(L"PNG")) || IsClipboardFormatAvailable(RegisterClipboardFormatW(L"JFIF")) || IsClipboardFormatAvailable(RegisterClipboardFormatW(L"image/jpeg")),
         IsClipboardFormatAvailable(CF_UNICODETEXT) || IsClipboardFormatAvailable(CF_TEXT));
 }
 QString Win::classifyClipboard() {
     const bool files=IsClipboardFormatAvailable(CF_HDROP);
-    const bool image=IsClipboardFormatAvailable(CF_DIBV5) || IsClipboardFormatAvailable(CF_DIB) || IsClipboardFormatAvailable(CF_BITMAP) || IsClipboardFormatAvailable(RegisterClipboardFormatW(L"PNG"));
-    if(files || image) return classifyFormats(files,image,false);
+    const bool image=IsClipboardFormatAvailable(CF_DIBV5) || IsClipboardFormatAvailable(CF_DIB) || IsClipboardFormatAvailable(CF_BITMAP) || IsClipboardFormatAvailable(RegisterClipboardFormatW(L"PNG")) || IsClipboardFormatAvailable(RegisterClipboardFormatW(L"JFIF")) || IsClipboardFormatAvailable(RegisterClipboardFormatW(L"image/jpeg"));
+    if(image) return "image";
+    if(files) {
+        const auto drop=static_cast<HDROP>(GetClipboardData(CF_HDROP));
+        if(!drop) return "files";
+        const UINT count=DragQueryFileW(drop,0xffffffff,nullptr,0);
+        if(count==0 || count>128) return "files";
+        QStringList paths;
+        for(UINT i=0;i<count;++i) {
+            const UINT length=DragQueryFileW(drop,i,nullptr,0);
+            if(length==0 || length>=4096) return "files";
+            wchar_t path[4096]{};
+            if(DragQueryFileW(drop,i,path,4096)!=length) return "files";
+            paths.append(QString::fromWCharArray(path,int(length)));
+        }
+        return classifyFilePaths(paths);
+    }
     if (IsClipboardFormatAvailable(CF_UNICODETEXT)) {
         const auto handle = GetClipboardData(CF_UNICODETEXT);
         if (handle) {

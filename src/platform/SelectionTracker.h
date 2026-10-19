@@ -31,6 +31,7 @@ public:
     bool initialized() const;
     void invalidate();
     void receive();
+    qint64 lastQueryMs() const { return m_lastQueryMs; }
     QString status() const { return m_status; }
 signals:
     void ready(const SelectionSnapshot &snapshot);
@@ -39,6 +40,7 @@ private:
     struct Shared;
     std::shared_ptr<Shared> m_shared;
     quint64 m_generation = 0;
+    qint64 m_lastQueryMs = 0;
     QTimer m_budget;
     QString m_status = "尚未检测";
     QString m_path;

@@ -18,6 +18,7 @@ bool startupEnabled();
 bool setStartup(bool enabled);
 QString classifyClipboard(); // Caller owns OpenClipboard; reads at most 2048 UTF-16 units.
 QString clipboardFormatKind(); // Does not request delayed clipboard payloads.
+QString classifyFilePaths(const QStringList &paths);
 QString classifyFormats(bool files,bool image,bool text,QStringView snippet = {},bool complete = true);
 bool probableCopy();
 QRectF copyToastRect(QPoint cursor,const QRect &area,const QVariantMap &settings,double scale);

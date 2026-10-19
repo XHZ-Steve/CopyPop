@@ -1,6 +1,7 @@
 #include "App.h"
 #include "core/EffectMetrics.h"
 #include <QApplication>
+#include <psapi.h>
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QDir>
@@ -28,8 +29,24 @@ App::App(Config *config,QQmlEngine *engine,bool testing,QObject *parent)
     Q_UNUSED(followerType);
     connect(&m_renderer,&OverlayRenderer::followFrame,this,&App::followToast);
     QFile games(":/resources/data/games.json"); if (games.open(QIODevice::ReadOnly)) m_games = QJsonDocument::fromJson(games.readAll()).array().toVariantList();
+    m_performanceTimer.setInterval(500);
+    connect(&m_performanceTimer,&QTimer::timeout,this,[this] {
+        if(m_config->value("debugProcess").toBool()) {
+            FILETIME created{}, exited{}, kernel{}, user{};
+            if(GetProcessTimes(GetCurrentProcess(),&created,&exited,&kernel,&user)) {
+                ULARGE_INTEGER k{},u{}; k.LowPart=kernel.dwLowDateTime; k.HighPart=kernel.dwHighDateTime; u.LowPart=user.dwLowDateTime; u.HighPart=user.dwHighDateTime;
+                const quint64 ticks=k.QuadPart+u.QuadPart; const auto now=m_uptime.elapsed();
+                SYSTEM_INFO info{}; GetSystemInfo(&info);
+                if(m_lastCpuAt && now>m_lastCpuAt) m_cpuPercent=100.*double(ticks-m_lastCpuTicks)/10000./double(now-m_lastCpuAt)/qMax(1UL,info.dwNumberOfProcessors);
+                m_lastCpuAt=now; m_lastCpuTicks=ticks;
+            }
+            PROCESS_MEMORY_COUNTERS_EX memory{}; memory.cb=sizeof(memory);
+            if(GetProcessMemoryInfo(GetCurrentProcess(),reinterpret_cast<PROCESS_MEMORY_COUNTERS *>(&memory),sizeof(memory))) {m_memoryMb=memory.WorkingSetSize/1048576.;m_privateMb=memory.PrivateUsage/1048576.;}
+        }
+        emit performanceChanged();
+    });
     m_sequence = GetClipboardSequenceNumber();
-    m_kind=Win::clipboardFormatKind(); if(m_kind=="text") m_classifier.request(m_sequence);
+    m_kind=Win::clipboardFormatKind(); if(m_kind=="text" || m_kind=="files") m_classifier.request(m_sequence);
     m_guardTimer.setInterval(700);
     connect(&m_guardTimer,&QTimer::timeout,this,&App::refresh);
     m_attachedTimer.setInterval(33);
@@ -40,7 +57,7 @@ App::App(Config *config,QQmlEngine *engine,bool testing,QObject *parent)
     m_snapshotDebounce.setSingleShot(true); m_snapshotDebounce.setInterval(60);
     connect(&m_snapshotDebounce,&QTimer::timeout,this,[this]{ if (allowed()) query(QueryReason::Snapshot); });
     connect(&m_events,&WindowsEvents::clipboardChanged,this,[this]{ clipboard(); });
-    connect(&m_events,&WindowsEvents::clipboardClassified,this,[this]{const auto kind=m_classifier.receive(m_sequence); if(!kind.isEmpty()){m_kind=kind; emit statusChanged();}});
+    connect(&m_events,&WindowsEvents::clipboardClassified,this,[this]{const auto kind=m_classifier.receive(m_sequence); if(!kind.isEmpty()){m_kind=kind; if(m_caret) { if(m_config->value("caretTypes").toString().split(',').contains(kind)) m_renderer.updateKind(kind); else cancel(); } emit statusChanged();}});
     m_focusProbe.setSingleShot(true); m_focusProbe.setInterval(80);
     connect(&m_focusProbe,&QTimer::timeout,this,[this] {
         if(!allowed() || !m_effective.value("caretEnabled").toBool() || !m_effective.value("hybridTracking").toBool()) return;
@@ -49,8 +66,8 @@ App::App(Config *config,QQmlEngine *engine,bool testing,QObject *parent)
             if(m_focusAttempts<8) m_focusProbe.start();
         }
     });
-    connect(&m_events,&WindowsEvents::foregroundChanged,this,[this]{ cancel(); m_tracker.invalidate(); m_snapshot = {}; refresh(); scheduleFocus(); });
-    connect(&m_events,&WindowsEvents::focusChanged,this,[this]{ cancel(); m_snapshot = {}; refresh(); m_tracker.invalidate(); scheduleFocus(); });
+    connect(&m_events,&WindowsEvents::foregroundChanged,this,[this]{ if(GetForegroundWindow()!=m_foreground) { cancel(); m_tracker.invalidate(); m_snapshot = {}; refresh(); } scheduleFocus(); });
+    connect(&m_events,&WindowsEvents::focusChanged,this,[this]{ if(!m_caret) { cancel(); m_snapshot = {}; } refresh(); m_tracker.invalidate(); scheduleFocus(); });
     connect(&m_events,&WindowsEvents::selectionChanged,this,[this]{ if (allowed() && !m_copyPending && !m_focusProbe.isActive() && !m_snapshotDebounce.isActive()) m_snapshotDebounce.start(); });
     connect(&m_events,&WindowsEvents::selectionReady,&m_tracker,&SelectionTracker::receive);
     connect(&m_events,&WindowsEvents::caretChanged,this,[this]{ if(m_caret) tick(); });
@@ -63,7 +80,12 @@ App::App(Config *config,QQmlEngine *engine,bool testing,QObject *parent)
         cancel(); m_tracker.invalidate(); m_snapshot = {};
         if (!m_testing && !m_config->value("firstRun").toBool() && Win::startupEnabled() != m_config->value("startup").toBool() && !Win::setStartup(m_config->value("startup").toBool())) notify("无法更新开机启动，请检查当前用户注册表权限。" );
         refresh();
+        if(m_config->value("debugProcess").toBool() || m_config->value("debugUia").toBool()) { if(!m_performanceTimer.isActive()) {m_lastCpuAt=0; m_performanceTimer.start();} }
+        else m_performanceTimer.stop();
+        if(!m_config->value("debugProcess").toBool()) m_lastCpuAt=0;
+        emit performanceChanged();
     });
+    if(m_config->value("debugProcess").toBool() || m_config->value("debugUia").toBool()) m_performanceTimer.start();
     m_menu->addAction("打开设置",this,&App::showSettings);
     m_menu->addAction("暂停 / 恢复",this,[this]{ if (m_paused) resume(); else pause(); });
     m_menu->addAction("暂停 30 分钟",this,[this]{ pause(30); });
@@ -157,7 +179,7 @@ void App::clipboard() {
     const auto sequence = GetClipboardSequenceNumber();
     if (sequence == m_sequence) return;
     m_focusProbe.stop(); cancel(); m_tracker.invalidate(); m_copyPending = false; m_copyHint = Win::probableCopy(); m_copyAt = QDateTime::currentMSecsSinceEpoch();
-    m_kind=Win::clipboardFormatKind(); if(m_kind=="text") m_classifier.request(sequence);
+    m_kind=Win::clipboardFormatKind(); if(m_kind=="text" || m_kind=="files") m_classifier.request(sequence);
     const auto owner = GetAncestor(GetClipboardOwner(),GA_ROOT);
     m_sequence = sequence; ++m_updates; refresh(); emit statusChanged(); log("clipboard-update");
     DWORD pid = 0; GetWindowThreadProcessId(m_foreground,&pid);
@@ -175,7 +197,7 @@ void App::beginCopy(HWND owner,bool inputHint) {
     m_copyPending = true; m_copyDeadline.start(); query(QueryReason::Copy);
 }
 void App::scheduleFocus() {
-    m_focusAttempts=0; m_lastInputAt=0; m_focusProbe.start();
+    m_focusAttempts=0; m_focusProbe.start();
 }
 void App::query(QueryReason reason) {
     if (!allowed() || !m_effective.value("hybridTracking").toBool()) { if (reason == QueryReason::Copy) copyFallback(); return; }
@@ -184,6 +206,7 @@ void App::query(QueryReason reason) {
 void App::selection(const SelectionSnapshot &s) {
     if (!allowed() || s.window != m_foreground) return;
     if (s.protectedControl) { m_snapshot = {}; if (m_copyPending) { m_copyPending = false; m_copyDeadline.stop(); } cancel(); return; }
+    const bool sameControl=m_caret && !s.control.isEmpty() && s.control==m_snapshot.control && s.controlId==m_snapshot.controlId;
     m_snapshot = s;
     if(s.reason==QueryReason::Focus && !m_renderer.visible() && s.requestedAt>=m_lastInputAt && s.editable && s.caret.isEmpty() && m_focusAttempts<8) m_focusProbe.start();
     if (m_copyPending) {
@@ -192,14 +215,15 @@ void App::selection(const SelectionSnapshot &s) {
         if (!m_copyHint && !s.selection) return;
         if (s.level=="L3" && !s.rectangles.isEmpty() && m_effective.value("effectsEnabled").toBool()) animate(s.rectangles);
         else showCopyToast();
-    } else if (s.reason == QueryReason::Focus && !m_renderer.visible() && s.requestedAt>=m_lastInputAt && s.editable && !s.caret.isEmpty() && m_effective.value("caretEnabled").toBool() && m_config->value("caretTypes").toString().split(',').contains(m_kind)) {
+    } else if (s.reason == QueryReason::Focus && (!m_renderer.visible() || m_caret) && s.requestedAt>=m_lastInputAt && s.editable && !s.caret.isEmpty() && m_effective.value("caretEnabled").toBool() && m_config->value("caretTypes").toString().split(',').contains(m_kind)) {
         const auto scale = double(GetDpiForWindow(s.window))/96.0;
         const auto size = m_config->value("caretSize").toInt()*scale;
         const auto p = s.caret.bottomLeft()+QPointF(m_config->value("caretOffsetX").toInt()*scale,m_config->value("caretOffsetY").toInt()*scale);
         const auto client=Win::clientRect(s.window);
         if(client.width()>=size && client.height()>=size && QRectF(client).intersects(s.caret)) {
             const QPointF position(qBound(double(client.left()),p.x(),double(client.x()+client.width())-size),qBound(double(client.top()),p.y(),double(client.y()+client.height())-size));
-            animate({QRectF(position,QSizeF(size,size))},true);
+            if(sameControl) { m_rects={QRectF(position,QSizeF(size,size))}; m_renderer.move(m_rects); }
+            else animate({QRectF(position,QSizeF(size,size))},true);
         }
     } else if (s.reason == QueryReason::Follow && m_renderer.visible() && !m_caret && !m_fallback) {
         if (!s.selection || s.rectangles.isEmpty()) { cancel(); return; }
@@ -322,6 +346,9 @@ void App::followToast(double seconds) {
     if(position!=tip.topLeft()) {m_toastMotion.reset(position);tip.moveTopLeft(position);}
     m_rects={tip}; m_renderer.move(m_rects);
     m_renderer.setPaperOffset((target.topLeft()-tip.topLeft())*0.85);
+}
+QVariantMap App::performanceStats() const {
+    return {{"cpu",m_cpuPercent},{"memory",m_memoryMb},{"privateMemory",m_privateMb},{"uiaMs",m_tracker.lastQueryMs()},{"uiaStatus",m_tracker.status()},{"timeouts",m_timeouts},{"copies",m_updates},{"animations",m_animations}};
 }
 QString App::diagnostics() const {
     return QString("CopyPop 1.0.0 · Qt %1\n剪贴板监听：%2\n选区能力：%3\n剪贴板更新：%4 · 动画：%5 · 查询超时：%6\nUIA 预算：180 ms · 单个 MTA 工作线程\n配置：%7\n日志：%8\n启动项：%9").arg(QT_VERSION_STR,m_events.valid()?"已注册":"失败",m_tracker.status()).arg(m_updates).arg(m_animations).arg(m_timeouts).arg(m_config->fileName(),logPath(),Win::startupEnabled()?"已启用":"未启用");

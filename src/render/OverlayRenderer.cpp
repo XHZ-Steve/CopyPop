@@ -21,6 +21,9 @@ void OverlayRenderer::show(HWND owner,const QList<QRectF> &rects,const QVariantM
     hide(); setPaperOffset({}); m_owner = owner; m_settings = settings; m_kind = kind; layout(rects,true);
 }
 void OverlayRenderer::move(const QList<QRectF> &rects) { if (visible()) layout(rects,false); }
+void OverlayRenderer::updateKind(const QString &kind) {
+    m_kind=kind; for(auto *view:m_views) if(view->rootObject()) view->rootObject()->setProperty("kind",kind);
+}
 void OverlayRenderer::setPaperOffset(QPointF offset) {
     for(auto *view:m_views) if(view->rootObject()) view->rootObject()->setProperty("paperOffset",offset/view->devicePixelRatio());
 }
@@ -49,7 +52,7 @@ void OverlayRenderer::layout(const QList<QRectF> &rects,bool start) {
         bounds = bounds.adjusted(-8*scale,-8*scale,8*scale,8*scale).intersected(m_kind.isEmpty()?monitor:work);
         // Keep the native toast host fixed. Moving its HWND every frame can stall
         // the Qt animation/render clock; only the toast's QML coordinates follow.
-        if(m_kind=="copied") bounds=QRectF(Win::clientRect(m_owner)).intersected(work).intersected(monitor);
+        if(m_kind=="copied" || m_settings.value("debugHostBounds").toBool() || m_settings.value("debugProcess").toBool() || m_settings.value("debugFrames").toBool() || m_settings.value("debugFrameGraph").toBool() || m_settings.value("debugUia").toBool()) bounds=QRectF(Win::clientRect(m_owner)).intersected(work).intersected(monitor);
         if (bounds.isEmpty()) continue;
         if (index >= m_views.size()) {
             auto *view = new QQuickView(m_engine,nullptr);

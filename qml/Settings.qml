@@ -17,7 +17,8 @@ ApplicationWindow {
         {title:"窗口追踪",subtitle:"让动效留在它应该出现的地方。",icon:"scan-line"},
         {title:"专注保护",subtitle:"专注、演示和游戏时，自动退到幕后。",icon:"shield-check"},
         {title:"应用规则",subtitle:"为每个应用保留自己的节奏。",icon:"app-window"},
-        {title:"高级",subtitle:"诊断、配置与版本信息。",icon:"sliders-horizontal"}
+        {title:"高级",subtitle:"诊断、配置与版本信息。",icon:"sliders-horizontal"},
+        {title:"Debug",subtitle:"按需观察性能与绘制几何。",icon:"scan-line"}
     ]
     property var specs: [
         [
@@ -58,8 +59,9 @@ ApplicationWindow {
             {key:"fallbackFadeOut",label:"淡出时长",note:"淡入与淡出超过总时长时，按比例缩短。",type:"number",min:0,max:800,step:10,unit:"ms"},
             {key:"fallbackFadeCurve",label:"淡入淡出曲线",type:"choice",options:[{label:"正弦缓入缓出",value:"inOutSine"},{label:"柔和减速 / 加速",value:"outCubic"},{label:"线性",value:"linear"}]},
             {key:"fallbackLift",label:"淡入淡出位移",note:"遵循系统减少动画偏好；关闭动画时仅保留透明度变化。",type:"number",min:0,max:16,step:1,unit:"px"},
-            {section:"彩纸特效",key:"fallbackPaperEnabled",label:"从中心展开彩纸",note:"快速拉伸展开后缓动收回；彩纸比文字更紧地跟随光标。",type:"bool"},
-            {whenKey:"fallbackPaperEnabled",whenValue:true,key:"fallbackPaperColor",label:"彩纸颜色",type:"color"},
+            {section:"彩纸特效",key:"fallbackPaperEnabled",label:"从中心展开彩纸",note:"从中心向四周展开，内沿向外追上外沿收尾；彩纸更紧地跟随光标。",type:"bool"},
+            {whenKey:"fallbackPaperEnabled",whenValue:true,key:"fallbackPaperMulticolor",label:"彩色彩纸",note:"开启后使用多色组合；关闭后使用下方自定义颜色。",type:"bool"},
+            {whenKey:"fallbackPaperEnabled",whenValue:true,key:"fallbackPaperColor",label:"彩纸颜色",note:"关闭彩色彩纸时使用此颜色。",type:"color"},
             {whenKey:"fallbackPaperEnabled",whenValue:true,key:"fallbackPaperDuration",label:"彩纸动画时长",note:"包含展开与收回，最长不超过提示的显示时长。",type:"number",min:150,max:2000,step:10,unit:"ms"},
             {section:"光标跟随",key:"fallbackFollowStiffness",label:"跟随力度",note:"弹簧加速度系数，越高越快接近光标。按实际动画帧间隔计算。",type:"number",min:80,max:2000,step:20},
             {key:"fallbackFollowDamping",label:"跟随阻尼",note:"1 为临界阻尼；小于 1 有回弹，大于 1 更沉稳。",type:"number",min:0.4,max:2,step:0.05,decimals:2}
@@ -71,7 +73,8 @@ ApplicationWindow {
             {section:"显示位置",key:"caretOffsetX",label:"水平偏移",type:"number",min:-80,max:80,step:1,unit:"px"},
             {key:"caretOffsetY",label:"垂直偏移",type:"number",min:-80,max:80,step:1,unit:"px"},
             {section:"播放时序",key:"caretDuration",label:"显示时长",type:"number",min:300,max:4000,step:100,unit:"ms"},
-            {key:"caretFade",label:"淡入 / 淡出时长",type:"number",min:50,max:600,step:10,unit:"ms"}
+            {key:"caretFadeIn",label:"淡入时长",note:"默认为 60 ms；0 ms 表示立即显示。",type:"number",min:0,max:800,step:10,unit:"ms"},
+            {key:"caretFadeOut",label:"淡出时长",note:"0 ms 表示立即隐藏；两段超过总时长时等比缩短。",type:"number",min:0,max:800,step:10,unit:"ms"}
         ],
         [
             {section:"追踪策略",key:"hybridTracking",label:"智能混合追踪",note:"结合 UI Automation、焦点事件与短期几何快照。关闭后仅保留鼠标附近的复制反馈。",type:"bool"},
@@ -86,7 +89,18 @@ ApplicationWindow {
             {key:"guardGames",label:"已知游戏自动排除",note:"使用内置离线路径清单。其他游戏可在应用规则中添加。",type:"bool"},
             {key:"guardPresentation",label:"演示状态自动休眠",note:"遵循 Windows 演示、忙碌及 Direct3D 全屏状态。",type:"bool"}
         ],[],
-        [{section:"日志记录",key:"diagnostics",label:"本地诊断日志",note:"仅记录事件名称和时间。不会记录剪贴板内容、窗口标题或按键。日志上限约 512 KB。",type:"bool"}]
+        [{section:"日志记录",key:"diagnostics",label:"本地诊断日志",note:"仅记录事件名称和时间。不会记录剪贴板内容、窗口标题或按键。日志上限约 512 KB。",type:"bool"}],
+        [
+            {section:"性能监视器",key:"debugProcess",label:"进程占用",note:"每 500 ms 采样 CPU、工作集与私有内存；CPU 按整机逻辑处理器归一化。",type:"bool"},
+            {key:"debugFrames",label:"动画帧率与帧间隔",note:"显示当前 Qt Quick 窗口的动画帧回调频率，不代表 GPU 呈现帧率。",type:"bool"},
+            {key:"debugFrameGraph",label:"帧间隔图",note:"最近 32 帧的间隔柱形图，超过 20 ms 标红。",type:"bool"},
+            {key:"debugUia",label:"UIA 查询监视器",note:"显示最近查询耗时、能力等级、超时数与复制/动画计数。",type:"bool"},
+            {section:"绘制检查器",key:"debugSelectionBounds",label:"选区边界",type:"bool"},
+            {key:"debugCaretBounds",label:"光标提示边界",type:"bool"},
+            {key:"debugToastBounds",label:"降级提示边界",type:"bool"},
+            {key:"debugPaperGuides",label:"彩纸扩散路径",type:"bool"},
+            {key:"debugHostBounds",label:"承载窗口边界",note:"显示实际绘制窗口范围与逻辑像素尺寸。",type:"bool"}
+        ]
     ]
     property bool showEffectTuning: false
     property var effectTuningSpecs: [
@@ -310,6 +324,7 @@ ApplicationWindow {
             }
         }
     }
+    DebugOverlay { objectName: "settings-debug-overlay"; anchors.fill: parent }
     Dialog {
         id: resetDialog; anchors.centerIn: parent; modal: true; title: "恢复默认设置？"; standardButtons: Dialog.Ok | Dialog.Cancel
         Label { text: "这将清除自定义设置和应用规则。"; color: tokens.text }

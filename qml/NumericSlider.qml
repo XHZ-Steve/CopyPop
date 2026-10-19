@@ -27,5 +27,5 @@ RowLayout {
         from: control.from; to: control.to; value: control.value; decimals: control.decimals; label: control.label
         onEdited: function(value) { control.edited(value) }
     }
-    Label { visible: control.unit.length>0; text: control.unit; color: tokens.muted; font.pixelSize: 11 }
+    Label { Layout.preferredWidth: 28; Layout.minimumWidth: 28; Layout.maximumWidth: 28; text: control.unit; color: tokens.muted; font.pixelSize: 11; horizontalAlignment: Text.AlignLeft }
 }

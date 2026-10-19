@@ -178,7 +178,7 @@ SelectionTracker::SelectionTracker(HWND notify,QObject *parent) : QObject(parent
     m_shared->notify = notify;
     m_budget.setSingleShot(true); m_budget.setInterval(180);
     connect(&m_budget,&QTimer::timeout,this,[this] {
-        ++m_generation; m_status = "超时；安全降级";
+        m_lastQueryMs=180; ++m_generation; m_status = "超时；安全降级";
         m_capabilities[m_path] = {QDateTime::currentMSecsSinceEpoch()+30000,"timeout"};
         emit budgetExceeded();
     });
@@ -231,6 +231,7 @@ void SelectionTracker::receive() {
     if (!result || result->generation != m_generation) return;
     m_budget.stop();
     if (QDateTime::currentMSecsSinceEpoch()-result->requestedAt > 180 || GetForegroundWindow() != result->window) return;
+    m_lastQueryMs=QDateTime::currentMSecsSinceEpoch()-result->requestedAt;
     m_status = result->protectedControl ? "Off · 受保护控件" : result->level;
     m_capabilities[m_path] = {QDateTime::currentMSecsSinceEpoch()+60000,result->level};
     emit ready(*result);
