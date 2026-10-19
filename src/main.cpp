@@ -20,6 +20,7 @@ int main(int argc,char **argv) {
     QApplication application(argc,argv);
     QCoreApplication::setOrganizationName("CopyPop"); QCoreApplication::setApplicationName("CopyPop"); QCoreApplication::setApplicationVersion("1.0.0");
     application.setQuitOnLastWindowClosed(false);
+    application.setWindowIcon(QIcon(":/resources/icons/app.svg"));
     QFont font("Segoe UI Variable Text"); font.setFamilies({"Segoe UI Variable Text","Segoe UI","Microsoft YaHei UI"}); font.setPixelSize(14); application.setFont(font); QGuiApplication::setFont(font);
 #if QT_VERSION >= QT_VERSION_CHECK(6,8,0)
     QFontDatabase::addApplicationFallbackFontFamily(QChar::Script_Han,"Microsoft YaHei UI");

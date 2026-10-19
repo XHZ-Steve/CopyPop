@@ -37,6 +37,7 @@ ColumnLayout {
                         delegate: RowLayout {
                             id: row
                             required property var modelData
+                            visible: !modelData.whenKey || groups.values[modelData.whenKey]===modelData.whenValue
                             Layout.fillWidth: true; spacing: 0
                             StyledCheckBox {
                                 visible: groups.overrides; Layout.leftMargin: 8

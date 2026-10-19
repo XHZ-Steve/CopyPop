@@ -22,32 +22,10 @@ RowLayout {
         Accessible.name: control.label
         onMoved: control.edited(value)
     }
-    TextField {
-        id: number
-        objectName: control.controlName+"-number"
-        Layout.preferredWidth: 70
-        selectByMouse: true; horizontalAlignment: TextInput.AlignRight
-        inputMethodHints: Qt.ImhFormattedNumbersOnly
-        Accessible.name: control.label+"数值"
-        color: tokens.text; font.pixelSize: 12; padding: 8
-        property bool dirty: false
-        text: Number(control.value).toFixed(control.decimals)
-        validator: DoubleValidator { bottom: control.from; top: control.to; decimals: control.decimals; notation: DoubleValidator.StandardNotation; locale: "C" }
-        function restore() { dirty=false; text=Qt.binding(function() { return Number(control.value).toFixed(control.decimals) }) }
-        function commit() {
-            var next=Number(text)
-            if(dirty && acceptableInput && text.trim().length && isFinite(next)) control.edited(next)
-            restore()
-        }
-        onTextEdited: dirty=true
-        onEditingFinished: commit()
-        onActiveFocusChanged: if(!activeFocus) commit()
-        Keys.onEscapePressed: function(event) { restore(); focus=false; event.accepted=false }
-        background: Rectangle {
-            implicitHeight: 36; radius: 7; color: tokens.surface
-            border.width: number.activeFocus ? 2 : 1
-            border.color: number.activeFocus ? (number.acceptableInput ? tokens.accent : "#cf6659") : tokens.border
-        }
+    NumberEntry {
+        objectName: control.controlName+"-number"; Layout.preferredWidth: 70
+        from: control.from; to: control.to; value: control.value; decimals: control.decimals; label: control.label
+        onEdited: function(value) { control.edited(value) }
     }
     Label { visible: control.unit.length>0; text: control.unit; color: tokens.muted; font.pixelSize: 11 }
 }

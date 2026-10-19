@@ -7,15 +7,17 @@ Item {
     property real progress: 1
     property bool playing: false
     property bool paused: false
+    readonly property var metrics: App.effectMetrics(regions,settings)
     objectName: "effect-layer"
     property bool largeSelection: {
-        var a = 0; for(var i=0;i<regions.length;i++) a += regions[i].w*regions[i].h;
-        return a > 100000 || regions.length > 12
+        return metrics.area > 100000 || metrics.lineCount > 12
     }
-    property string chosenEffect: settings.adaptive && largeSelection ? "pulse" : settings.effect || "shimmer"
+    property string chosenEffect: settings.adaptive && largeSelection && settings.effect==="dissolve" ? "pulse" : settings.effect || "shimmer"
     readonly property color ink: settings.color || "#5989e8"
     readonly property real strength: settings.intensity || 0.6
-    readonly property real baseDuration: (settings.duration || 700)/(settings.speed || 1)
+    readonly property real baseDuration: metrics.duration
+    readonly property bool constantSpeed: settings.durationMode==="adaptive"
+    readonly property color highlightInk: Qt.lighter(ink,1.18)
     signal finished()
     clip: true
     visible: playing
@@ -30,7 +32,7 @@ Item {
     NumberAnimation {
         id: motion; target: effect; property: "progress"; from: 0; to: 1
         duration: effect.baseDuration
-        easing.type: effect.settings.curve === "linear" ? Easing.Linear : effect.settings.curve === "inOutSine" ? Easing.InOutSine : Easing.OutCubic
+        easing.type: effect.constantSpeed || effect.settings.curve === "linear" ? Easing.Linear : effect.settings.curve === "inOutSine" ? Easing.InOutSine : Easing.OutCubic
         onFinished: { effect.playing = false; effect.paused=false; effect.finished() }
     }
     Repeater {
@@ -45,20 +47,24 @@ Item {
             Rectangle {
                 objectName: "effect-outline"
                 anchors.fill: parent; radius: Math.min(effect.settings.effectRadius,height/2)
-                color: Qt.rgba(effect.ink.r,effect.ink.g,effect.ink.b,effect.chosenEffect === "pulse" ? 0.05 : 0.12)
+                color: Qt.rgba(effect.ink.r,effect.ink.g,effect.ink.b,effect.chosenEffect === "pulse" ? 0.05 : 0.1*effect.metrics.boost)
                 border.width: effect.settings.effectBorder + (effect.chosenEffect === "pulse" ? 0.5 + 1.5*effect.strength*Math.pow(Math.sin(effect.progress*Math.PI*effect.settings.pulseCycles),2) : 0)
                 border.color: Qt.rgba(effect.ink.r,effect.ink.g,effect.ink.b,0.65)
             }
             Rectangle {
                 visible: effect.chosenEffect === "shimmer"
                 objectName: "effect-shimmer"
-                width: Math.max(12,region.width*effect.settings.shimmerWidth/100); height: region.height
-                x: effect.regions.length > 1 && effect.settings.adaptive ? (effect.width+width)*effect.progress-width-region.x : (region.width+width)*effect.progress-width
+                width: effect.metrics.bandWidth
+                height: region.height+Math.abs(Math.sin(rotation*Math.PI/180))*width
+                y: (region.height-height)/2
+                x: effect.settings.adaptive || effect.constantSpeed ? effect.metrics.left+effect.metrics.distance*effect.progress-width-region.x : (region.width+width)*effect.progress-width
                 rotation: effect.settings.shimmerAngle
                 gradient: Gradient {
                     orientation: Gradient.Horizontal
                     GradientStop { position: 0; color: "transparent" }
-                    GradientStop { position: 0.5; color: Qt.rgba(effect.ink.r,effect.ink.g,effect.ink.b,0.45+0.45*effect.strength) }
+                    GradientStop { position: 0.25; color: Qt.rgba(effect.ink.r,effect.ink.g,effect.ink.b,0.22*effect.metrics.boost) }
+                    GradientStop { position: 0.5; color: Qt.rgba(effect.highlightInk.r,effect.highlightInk.g,effect.highlightInk.b,Math.min(1,(0.45+0.45*effect.strength)*effect.metrics.boost)) }
+                    GradientStop { position: 0.75; color: Qt.rgba(effect.ink.r,effect.ink.g,effect.ink.b,0.22*effect.metrics.boost) }
                     GradientStop { position: 1; color: "transparent" }
                 }
             }

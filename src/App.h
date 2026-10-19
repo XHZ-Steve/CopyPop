@@ -30,6 +30,7 @@ public:
     QString notice() const { return m_notice; }
     bool reducedMotion() const;
     Q_INVOKABLE qint64 monotonicTime() const { return m_uptime.elapsed(); }
+    Q_INVOKABLE QVariantMap effectMetrics(const QVariantList &regions,const QVariantMap &settings) const;
     void start(bool background);
     Q_INVOKABLE void showSettings();
     Q_INVOKABLE void showWelcome();
@@ -57,6 +58,7 @@ private:
     void refresh();
     bool allowed() const;
     void clipboard();
+    void beginCopy(HWND clipboardOwner,bool inputHint);
     void selection(const SelectionSnapshot &snapshot);
     void copyFallback();
     void showCopyToast();
@@ -93,5 +95,6 @@ private:
     bool m_guarded = false, m_paused = false, m_caret = false, m_fallback = false, m_copyPending = false, m_copyHint = false, m_testing = false;
     DWORD m_sequence = 0;
     qint64 m_copyAt = 0, m_lastGeometry = 0;
+    int m_effectDuration = 700;
     quint64 m_updates = 0, m_animations = 0, m_timeouts = 0;
 };

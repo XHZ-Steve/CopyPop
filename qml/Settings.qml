@@ -29,13 +29,16 @@ ApplicationWindow {
         [
             {section:"启用与模式",key:"effectsEnabled",label:"复制特效",note:"仅在有复制操作证据时播放。默认不播放粘贴动画。",type:"bool"},
             {key:"effect",label:"动画类型",type:"choice",options:[{label:"Shimmer · 流光",value:"shimmer"},{label:"Pulse · 脉冲",value:"pulse"},{label:"Dissolve · 消散",value:"dissolve"}]},
-            {key:"adaptive",label:"自适应选区",note:"短文本水平流光，多行整体扫光，大选区轻量轮廓。",type:"bool"},
+            {key:"adaptive",label:"自适应选区",note:"按行数增强多行流光；大面积消散改用轻量轮廓。",type:"bool"},
             {section:"颜色与强度",key:"color",label:"特效颜色",note:"点击色块打开取色器，也可输入色值。",type:"color"},
             {key:"intensity",label:"强度",type:"number",min:0.1,max:1,step:0.05,decimals:2},
             {key:"opacity",label:"不透明度",type:"number",min:0.05,max:1,step:0.05,decimals:2},
-            {section:"播放节奏",key:"speed",label:"播放速度",type:"number",min:0.25,max:3,step:0.05,decimals:2,unit:"×"},
-            {key:"duration",label:"基础时长",type:"number",min:150,max:2500,step:50,unit:"ms"},
-            {key:"curve",label:"动画曲线",type:"choice",options:[{label:"柔和减速",value:"outCubic"},{label:"正弦缓入缓出",value:"inOutSine"},{label:"线性",value:"linear"}]},
+            {section:"播放节奏",key:"durationMode",label:"时长模式",type:"choice",options:[{label:"固定时长",value:"fixed"},{label:"自适应匀速",value:"adaptive"}]},
+            {whenKey:"durationMode",whenValue:"fixed",key:"speed",label:"播放速度",type:"number",min:0.25,max:3,step:0.05,decimals:2,unit:"×"},
+            {whenKey:"durationMode",whenValue:"fixed",key:"duration",label:"基础时长",type:"number",min:150,max:2500,step:50,unit:"ms"},
+            {whenKey:"durationMode",whenValue:"fixed",key:"curve",label:"动画曲线",type:"choice",options:[{label:"柔和减速",value:"outCubic"},{label:"正弦缓入缓出",value:"inOutSine"},{label:"线性",value:"linear"}]},
+            {whenKey:"durationMode",whenValue:"adaptive",key:"adaptiveBaseTime",label:"基础时间",note:"扫过 400 px 视觉路程所需的时间；匀速模式使用线性移动。",type:"number",min:100,max:2000,step:20,unit:"ms"},
+            {whenKey:"durationMode",whenValue:"adaptive",key:"adaptiveTimeScale",label:"时长缩放比",note:"实际时长 = 基础时间 × 扫光路程 / 400 × 缩放比。越小越快。",type:"number",min:0.25,max:3,step:0.05,decimals:2,unit:"×"},
             {section:"系统偏好",key:"respectReducedMotion",label:"遵循系统动画偏好",note:"Windows 关闭动画效果时，使用短暂、低强度的脉冲。",type:"bool"}
         ],
         [
@@ -111,7 +114,7 @@ ApplicationWindow {
                 anchors.fill: parent; anchors.margins: 16; spacing: 5
                 RowLayout {
                     Layout.topMargin: 18; Layout.bottomMargin: 28; Layout.leftMargin: 10; spacing: 12
-                    ActionButton { icon.source: "qrc:/resources/icons/copy.svg"; icon.color: tokens.accent; icon.width: 23; icon.height: 23; enabled: false; Layout.preferredWidth: 38; Layout.preferredHeight: 38; background: Rectangle { radius: 11; color: tokens.selected } }
+                    Image { source: "qrc:/resources/icons/app.svg"; Layout.preferredWidth: 38; Layout.preferredHeight: 38; sourceSize: Qt.size(76,76) }
                     Label { text: "CopyPop"; color: tokens.text; font.pixelSize: 23; font.weight: Font.DemiBold }
                 }
                 SidebarNavigation {
@@ -127,10 +130,9 @@ ApplicationWindow {
                     ColumnLayout {
                         anchors.fill: parent; anchors.margins: 12; spacing: 4
                         Label { text: App.status; color: tokens.accent; font.pixelSize: 13; font.weight: Font.DemiBold }
-                        Label { text: "1.0.0 · 仅在本地运行"; color: tokens.muted; font.pixelSize: 11 }
+                        Label { text: "1.0.0 · Alpha"; color: tokens.muted; font.pixelSize: 11 }
                     }
                 }
-                ActionButton { text: "重新打开欢迎页"; flat: true; Layout.fillWidth: true; onClicked: App.showWelcome(); font.pixelSize: 12 }
             }
         }
         ColumnLayout {
@@ -185,7 +187,8 @@ ApplicationWindow {
                         Layout.fillWidth: true; implicitHeight: languageColumn.implicitHeight+40; color: tokens.surface; radius: 12; border.color: tokens.border
                         ColumnLayout {
                             id: languageColumn; anchors.fill: parent; anchors.margins: 20; spacing: 10
-                            Label { text: "语言"; color: tokens.text; font.weight: Font.Medium }
+                            Label { text: "语言与引导"; color: tokens.text; font.weight: Font.Medium }
+                            ActionButton { objectName: "reopen-welcome"; text: "重新打开欢迎页"; onClicked: App.showWelcome() }
                             Label { text: "简体中文\n配置保留语言标识，后续版本将加入更多界面语言。"; color: tokens.muted; font.pixelSize: 12; Layout.fillWidth: true; wrapMode: Text.WordWrap }
                         }
                     }
@@ -297,7 +300,10 @@ ApplicationWindow {
             {section:"特效模式",key:"adaptive",label:"自适应特效",type:"bool"},
             {key:"effect",label:"动画类型",type:"choice",options:[{label:"流光",value:"shimmer"},{label:"脉冲",value:"pulse"},{label:"消散",value:"dissolve"}]},
             {section:"特效外观与节奏",key:"color",label:"颜色",type:"color"},
-            {key:"duration",label:"时长",type:"number",min:150,max:2500,step:50,unit:"ms"},
+            {key:"durationMode",label:"时长模式",type:"choice",options:[{label:"固定时长",value:"fixed"},{label:"自适应匀速",value:"adaptive"}]},
+            {key:"adaptiveBaseTime",label:"匀速基础时间（400 px）",type:"number",min:100,max:2000,step:20,unit:"ms"},
+            {key:"adaptiveTimeScale",label:"匀速时长缩放比",type:"number",min:0.25,max:3,step:0.05,decimals:2,unit:"×"},
+            {key:"duration",label:"固定时长",type:"number",min:150,max:2500,step:50,unit:"ms"},
             {key:"speed",label:"速度",type:"number",min:0.25,max:3,step:0.05,decimals:2},
             {key:"intensity",label:"强度",type:"number",min:0.1,max:1,step:0.05,decimals:2},
             {key:"opacity",label:"不透明度",type:"number",min:0.05,max:1,step:0.05,decimals:2}

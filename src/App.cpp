@@ -1,4 +1,5 @@
 #include "App.h"
+#include "core/EffectMetrics.h"
 #include <QApplication>
 #include <QDateTime>
 #include <QDesktopServices>
@@ -77,7 +78,7 @@ QWindow *App::createWindow(const QString &source) {
     QQmlComponent component(m_engine,QUrl(source));
     auto *obj = component.create(m_engine->rootContext()); auto *window = qobject_cast<QWindow *>(obj);
     if (!window) { qWarning().noquote() << component.errorString(); delete obj; notify("界面加载失败，请查看诊断。" ); return nullptr; }
-    window->setIcon(QIcon(":/resources/icons/copy.svg"));
+    window->setIcon(QIcon(":/resources/icons/app.svg"));
     connect(window,&QWindow::visibleChanged,this,[window](bool visible){ if (!visible) window->deleteLater(); });
     window->show(); return window;
 }
@@ -139,9 +140,7 @@ void App::refresh() {
     if (m_status != status) { m_status = status; trayUpdate(); } emit statusChanged();
 }
 void App::trayUpdate() {
-    QPixmap pixmap(32,32); pixmap.fill(Qt::transparent); QPainter p(&pixmap); p.setRenderHint(QPainter::Antialiasing);
-    p.setPen(QPen(m_status=="正在运行"?QColor("#5989e8"):QColor("#929aa8"),2.8));
-    p.drawRoundedRect(QRectF(6,8,17,19),4,4); p.drawRoundedRect(QRectF(11,3,16,18),4,4);
+    QPixmap pixmap=QIcon(":/resources/icons/app.svg").pixmap(32,32); QPainter p(&pixmap); p.setRenderHint(QPainter::Antialiasing);
     if (m_status != "正在运行") { p.setPen(QPen(QColor("#dcad62"),3)); p.drawLine(22,23,22,29); p.drawLine(28,23,28,29); }
     p.end(); m_tray.setIcon(QIcon(pixmap)); m_tray.setToolTip("CopyPop · " + m_status);
 }
@@ -154,8 +153,14 @@ void App::clipboard() {
     m_sequence = sequence; ++m_updates; refresh(); emit statusChanged(); log("clipboard-update");
     DWORD pid = 0; GetWindowThreadProcessId(m_foreground,&pid);
     if (!allowed() || pid == GetCurrentProcessId() || (!m_effective.value("effectsEnabled").toBool() && !m_effective.value("fallbackEnabled").toBool())) return;
-    // An update is not proof of Ctrl+C: require input evidence or a recent selection in the source window.
-    const bool recentSelection = m_snapshot.window == m_foreground && m_snapshot.selection && !m_snapshot.protectedControl && m_copyAt-m_snapshot.requestedAt < 900;
+    beginCopy(owner,m_copyHint);
+}
+void App::beginCopy(HWND owner,bool inputHint) {
+    // Clipboard notifications can arrive after Ctrl+C is released while the mouse moves.
+    // Carry confirmed source-selection evidence through the timeout/fallback path too.
+    const auto age=m_copyAt-m_snapshot.requestedAt;
+    const bool recentSelection=m_snapshot.window==m_foreground && m_snapshot.selection && !m_snapshot.protectedControl && age>=0 && age<900;
+    m_copyHint=inputHint || (owner==m_foreground && recentSelection);
     if (!m_copyHint && owner != m_foreground) return;
     if (recentSelection) log("copy-selection-evidence");
     m_copyPending = true; m_copyDeadline.start(); query(QueryReason::Copy);
@@ -208,11 +213,29 @@ void App::showCopyToast() {
     const auto rect=toastRect(); if(!rect.isEmpty()) animate({rect},false,true);
 }
 bool App::reducedMotion() const {return m_config->value("respectReducedMotion").toBool() && Win::reducedMotion();}
+QVariantMap App::effectMetrics(const QVariantList &regions,const QVariantMap &settings) const {
+    QList<QRectF> rectangles;
+    for(const auto &region:regions) {const auto r=region.toMap(); rectangles.append(QRectF(r["x"].toDouble(),r["y"].toDouble(),r["w"].toDouble(),r["h"].toDouble()));}
+    return EffectMetrics::measure(rectangles,settings);
+}
 void App::animate(const QList<QRectF> &rects,bool caret,bool fallback) {
     if (!allowed() || rects.isEmpty()) return;
     auto settings = m_effective;
     settings["reducedMotion"]=reducedMotion();
     if (m_config->value("respectReducedMotion").toBool() && Win::reducedMotion()) { settings["effect"] = "pulse"; settings["duration"] = 250; settings["intensity"] = 0.2; }
+    QList<QRectF> logicalRects;
+    for(const auto &rect:rects) {
+        const POINT point{LONG(rect.center().x()),LONG(rect.center().y())}; MONITORINFO monitor{}; monitor.cbSize=sizeof(monitor);
+        double scale=1; QPointF origin;
+        if(GetMonitorInfoW(MonitorFromPoint(point,MONITOR_DEFAULTTONEAREST),&monitor)) {
+            origin=QPointF(monitor.rcMonitor.left,monitor.rcMonitor.top);
+            for(auto *screen:QGuiApplication::screens()) if(screen->geometry().topLeft()==origin.toPoint()) {scale=screen->devicePixelRatio();break;}
+        }
+        logicalRects.append(QRectF(origin+(rect.topLeft()-origin)/scale,rect.size()/scale));
+    }
+    m_effectDuration=qRound(EffectMetrics::measure(logicalRects,settings)["duration"].toDouble());
+    if(settings["reducedMotion"].toBool()) m_effectDuration=250;
+    settings["resolvedDuration"]=m_effectDuration;
     m_owner = m_foreground; m_ownerRect = Win::windowRect(m_owner); m_rects = rects; m_caret = caret; m_fallback=fallback;
     if(fallback) {
         m_toastMotion.stiffness=settings.value("fallbackFollowStiffness").toDouble();
@@ -226,7 +249,7 @@ void App::animate(const QList<QRectF> &rects,bool caret,bool fallback) {
 void App::cancel() { m_renderer.hide(); m_attachedTimer.stop(); m_rects.clear(); m_caret = false; m_fallback=false; m_copyPending = false; m_copyDeadline.stop(); }
 void App::tick() {
     if (!m_renderer.visible() || !allowed() || GetForegroundWindow() != m_owner || !IsWindowVisible(m_owner) || IsIconic(m_owner) || (Win::fullscreen(m_owner) && m_config->value("guardFullscreen").toBool())) { cancel(); return; }
-    const auto maxDuration = m_fallback?m_effective.value("fallbackDuration").toInt():m_caret?m_config->value("caretDuration").toInt():qRound(m_effective.value("duration").toDouble()/m_effective.value("speed").toDouble());
+    const auto maxDuration = m_fallback?m_effective.value("fallbackDuration").toInt():m_caret?m_config->value("caretDuration").toInt():m_effectDuration;
     if (m_animationClock.elapsed() > maxDuration+60) { cancel(); return; }
     if (m_caret) {
         // Geometry/value WinEvents cover most typing; short-lived key-state observation closes provider gaps. No hook or key recording.

@@ -6,7 +6,7 @@ Rectangle {
     objectName: "live-preview"
     property var theme
     property bool compact: false
-    implicitHeight: compact ? 160 : 280
+    implicitHeight: compact ? 160 : 390
     radius: 12; color: theme.surface; border.color: theme.border
     ColumnLayout {
         anchors.fill: parent; anchors.margins: 22; spacing: 12
@@ -19,7 +19,9 @@ Rectangle {
             id: sampleArea
             Layout.fillWidth: true; Layout.fillHeight: true
             TextEdit {
-                id: sample; anchors.fill: parent; text: "灵感值得被看见。\nA little delight in every copy."; selectByMouse: true; readOnly: true
+                id: sample; objectName: "sample-text"; anchors.fill: parent
+                text: preview.compact ? "灵感值得被看见。\nA little delight in every copy." : "灵感值得被看见。\nA little delight in every copy.\n复制一行，留住此刻的想法。\n选中几行，看看流光怎样穿过文字。\n从短句到长段落，让每一次复制都有恰好的节奏。\nCopy a word, a sentence, or the whole story."
+                selectByMouse: true; readOnly: true
                 color: preview.theme.text; font.family: "Microsoft YaHei UI"; font.pixelSize: 18; wrapMode: TextEdit.Wrap
                 selectionColor: preview.theme.selected; selectedTextColor: preview.theme.text
                 Accessible.name: "可选择并复制的示例文本"
@@ -34,7 +36,7 @@ Rectangle {
             visible: !preview.compact; Layout.fillWidth: true
             ActionButton { text: "播放预览"; onClicked: preview.play(); Accessible.name: "播放当前动画设置" }
             ActionButton { objectName: "effect-pause"; text: actual.paused ? "继续" : "暂停"; enabled: actual.playing; onClicked: actual.togglePause() }
-            Label { text: actual.chosenEffect+" · "+actual.regions.length+" 段选区 · "+Math.round(actual.baseDuration)+" ms"; color: preview.theme.muted; font.pixelSize: 11; Layout.fillWidth: true; elide: Text.ElideRight }
+            Label { text: actual.chosenEffect+" · "+actual.metrics.lineCount+" 行 · "+Math.round(actual.baseDuration)+" ms"+(actual.constantSpeed ? " · 匀速" : ""); color: preview.theme.muted; font.pixelSize: 11; Layout.fillWidth: true; elide: Text.ElideRight }
         }
         RowLayout {
             visible: !preview.compact; Layout.fillWidth: true
